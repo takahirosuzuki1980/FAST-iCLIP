@@ -480,11 +480,16 @@ def runRepeatMask(mappedReads,repeatregions):
 	try:
 		for bedIn in mappedReads:
 			noRepeat=bedIn.replace('.bed','_noRepeat.bed')
+			masked=masked+[noRepeat]
+			if glob.glob(noRepeat): 
+				print "Repeat masking already done."
+				logOpen.write("Repeat masking already done.\n")
+				continue
+				
 			outfh=open(noRepeat, 'w')
 			proc=subprocess.Popen([program,'-a',bedIn,'-b',repeatregions,'-v','-s'],stdout=outfh)
 			proc.communicate()
 			outfh.close()
-			masked=masked+[noRepeat]
 		return (masked)
 	except:
 		print "Problem with repeat masking."
@@ -499,11 +504,16 @@ def runBlacklistRegions(mappedReads,blacklistregions):
 	try:
 		for bedIn in mappedReads:
 			noBlacklist=bedIn.replace('.bed','_noBlacklist.bed')
+			blackListed=blackListed+[noBlacklist]
+			if glob.glob(noBlacklist): 
+				print "Blacklist already done."
+				logOpen.write("Blacklist already done.\n")
+				continue
+			
 			outfh=open(noBlacklist, 'w')
 			proc=subprocess.Popen([program,'-a',bedIn,'-b',blacklistregions,'-v'],stdout=outfh)
 			proc.communicate()
 			outfh.close()
-			blackListed=blackListed+[noBlacklist]
 		return (blackListed)
 	except:
 		print "Problem with blacklist."
