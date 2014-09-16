@@ -23,6 +23,7 @@ mpl.rcParams['savefig.dpi'] = 2 * mpl.rcParams['savefig.dpi']
 
 # <codecell>
 
+
 global sampleName
 global outfilepath
 global logFile
