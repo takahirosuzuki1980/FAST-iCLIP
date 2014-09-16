@@ -1,62 +1,7 @@
 
 ---
 
-Steps to start:
-
-(1) Clone the repo
-- git clone https://github.com/lmart999/FASTCLIP
-
-(2) Obtain and put a repeat masker file in ~/docs/
-- This can be obtained as explained here: http://fantom.gsc.riken.jp/zenbu/wiki/index.php/Uploading_UCSC_repetitive_elements_track
-- This is not included in the repo because the file is large.
-- The code will, by default, look for a file with name: ~/docs/repeat_masker.bed
-- Simply re-name your file to repeat_masker.bed (or modify the code to target your file name).
-
-(3) Obtain and put the hg19 bowtie2 index in ~/docs/hg19/*
-- Again, this is not included in the repo because the files are large.
-- Files can be obtained here: wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/hg19.zip
-- Format will be hg19.1.bt2, hg19.3.bt2, etc.
-
-(4) Create a /rawdata directory within the parent (~/rawdata/)
-- Move paired raw iCLP .fastq files to /rawdata
-- Un-zip and use name convention: <name>_R1.fastq, <name>_R2.fastq.
-
-(5) Create result file directory (~/results/<name>/).
-- Output files for <name>_R1/2.fastq will be sent to ~/results/<name>/
-
----
-
-Dependencies:
-
-(1) Python 2.7 (for CLIPper algorithm)
-- https://www.python.org/download/releases/2.7/
-(2) iPython 
-- http://ipython.org/install.html
-(3) iPython notebook (for using the various notebooks provided)
-- http://ipython.org/notebook
-(4) Matplotlib (plotting)
-- http://matplotlib.org/
-(5) Pandas (data)
-- http://pandas.pydata.org/
-(6) Bowtie and bedTools
-- http://bowtie-bio.sourceforge.net/index.shtml
-- http://bedtools.readthedocs.org/en/latest/
-(7) CLIPPER
-- https://github.com/YeoLab/clipper/wiki/CLIPper-Home
-
----
-
-Usage:
-
-(1) Run the main pipeline:
-$ ipython fastclip.py.py <name>
-(2) The plots will, by defualt, be automatically generated.
-(3) The full fastclip pipeline is also provided as a notebook for manual analsis: Fastclip.ipynb.
-(4) Several additional notebooks are included see *ipynb.
-
----
-
-Pipeline steps explained:
+Pipeline:
 
 (1) Get unzipped reads from the /rawdata directory.
 - Format is <NAME>_R< 1 or 2>.fastq.
@@ -99,7 +44,6 @@ Pipeline steps explained:
 (10) Expanded reads from RT stop merging are passed to CLIPper, a peak calling algorithm.
 - CLIPper returns a bed-like file format with window coordinates, reads counted per window, etc.
 - We use these windows to extract "low FDR" reads from the total set of reads passed to CLIPper.
-- The windows provide gene names, which we parse and use to annotate the processed reads.
 - We then make bedGraph and BigWig files from this complete pool of "low FDR" reads, allowing easy visualization. 
 
 (11) Partition "low FDR" reads by gene type.
@@ -115,6 +59,8 @@ Pipeline steps explained:
 - For each gene type, we quantify the number of reads per gene.
 - For all but snoRNAs, this is computed using the bed files obtained above.
 - For snoRNAs, we intersect the initial pool of "low FDR" reads with custom annotation file. 
+- *** This is derived from < ... >. ***
+- We do this because *** ENSEMBL annotation is incomplete for snoRNAs. ***
 - Collectivly, this gives us reads per gene for each gene type.
 - All are based upon ENSEMBL annotation except for the snoRNAs.
 
@@ -163,6 +109,62 @@ Pipeline steps explained:
 
 ---
 
+Steps to start:
+
+(1) Clone the repo
+- git clone https://github.com/lmart999/FAST_CLIP
+
+(2) Obtain and put a repeat masker file in ~/docs/
+- This can be obtained as explained here: http://fantom.gsc.riken.jp/zenbu/wiki/index.php/Uploading_UCSC_repetitive_elements_track
+- This is not included in the repo because the file is large.
+- The code will, by default, look for a file with name: ~/docs/repeat_masker.bed
+- Simply re-name your file to repeat_masker.bed or modify the code to target your file name.
+
+(3) Obtain and put the hg19 bowtie2 index in ~/docs/hg19/*
+- Again, this is not included in the repo because the files are large.
+- Files can be obtained here: wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/hg19.zip
+- Format will be hg19.1.bt2, hg19.3.bt2, etc.
+
+(4) Create a /rawdata directory within the parent (~/rawdata/)
+- Move paired raw iCLIP .fastq files to /rawdata
+- Un-zip and use name convention: <name>_R1.fastq, <name>_R2.fastq.
+
+(5) Create result file directory (~/results/<name>/).
+- Output files for <name>_R1/2.fastq will be sent to ~/results/<name>/
+
+---
+
+Dependencies:
+
+(1) Python 2.7 (for CLIPper algorithm)
+- https://www.python.org/download/releases/2.7/
+(2) iPython 
+- http://ipython.org/install.html
+(3) iPython notebook 
+- http://ipython.org/notebook
+(4) Matplotlib (plotting)
+- http://matplotlib.org/
+(5) Pandas (data)
+- http://pandas.pydata.org/
+(6) Bowtie and bedTools
+- http://bowtie-bio.sourceforge.net/index.shtml
+- http://bedtools.readthedocs.org/en/latest/
+(7) CLIPPER
+- https://github.com/YeoLab/clipper/wiki/CLIPper-Home
+
+---
+
+Usage:
+
+(1) Run the main pipeline:
+$ ipython fast_iCLIP.py <name>
+(2) The plots will, by defualt, be automatically generated.
+- This can be modified in the code by commenting out runPlots()
+(3) Plots and various -meta analysis are also included < add more here >
+- See notebook tutorial .pdf provided.
+
+--- 
+
 Debugging:
 
 (1) Mapping
@@ -172,11 +174,10 @@ Debugging:
 - Uses Python 2.7. 
 
 (3) Any scrip in /bin 
-- The provided BedGraphToBigWig is built for Linux OS.
+- The provided BedGraphToBigWig is built for Linux. 
 - This, and related scripts, may be downloaded for other platforms: 
 http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.i386/
 
-(4) If there is a problem parsing clusters from CLIPper, consider the version used and update the CLIPPERoutNameDelim='_' parameter.
+(4) If there is a problem parsing clusters from CLIPper, consider the version used.
 - The older version of CLIPper results <name>_<clusterNum>_<readPerCluster>
 - The newer version has name.val__<clusterNum>_<readPerCluster>
-- Therefore, for newer version set CLIPPERoutNameDelim='.'

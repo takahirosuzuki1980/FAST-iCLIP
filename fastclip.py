@@ -47,7 +47,7 @@ q=25 # Minimum quality score to keep during filtering.
 p=80 # Percentage of bases that must have quality > q during filtering.    
 iCLIP5pBasesToTrim=13 # Number of reads to trim from 5' end of clip reads.
 k='1' # k=N distinct, valid alignments for each read in bt2 mapping.
-threshold=7 # Sum of RT stops (for both replicates) required to keep file. 
+threshold=3 # Sum of RT stops (for both replicates) required to keep file. 
 expand=15 # Bases to expand around RT position after RT stops are merged.
 repeat_index=os.getcwd() + '/docs/repeat/rep' # bt2 index for repeat RNA.
 repeatGenomeBuild=os.getcwd()+'/docs/repeat/repeatRNA.fa' # Sequence of repeat index.
@@ -59,7 +59,7 @@ end5s=6779
 start28s=7935
 end28s=12969
 rRNAend=13314
-threshold_rep=0 # RT stop threshold for repeat index.
+threshold_rep=1 # RT stop threshold for repeat index.
 index=os.getcwd() + '/docs/hg19/hg19' # bt2 index for mapping.
 index_tag='hg19' # Name of bt2 index.
 genomeFile=os.getcwd()+'/docs/human.hg19.genome' # Genome file for bedGraph, etc.

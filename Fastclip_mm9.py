@@ -29,7 +29,7 @@ global logFile
 global logOpen
 
 ### File name ###
-sampleName=sys.argv[1]
+sampleName='MMhur'
 infilepath=os.getcwd() + '/' + 'rawdata/'
 outfilepath=os.getcwd() + '/results/%s/'%sampleName
 
@@ -47,36 +47,35 @@ q=25 # Minimum quality score to keep during filtering.
 p=80 # Percentage of bases that must have quality > q during filtering.    
 iCLIP5pBasesToTrim=13 # Number of reads to trim from 5' end of clip reads.
 k='1' # k=N distinct, valid alignments for each read in bt2 mapping.
-threshold=2 # Sum of RT stops (for both replicates) required to keep file. 
+threshold=7 # Sum of RT stops (for both replicates) required to keep file. 
 expand=15 # Bases to expand around RT position after RT stops are merged.
-repeat_index=os.getcwd() + '/docs/repeat/rep' # bt2 index for repeat RNA.
-repeatGenomeBuild=os.getcwd()+'/docs/repeat/repeatRNA.fa' # Sequence of repeat index.
-repeatAnnotation=os.getcwd()+'/docs/repeat/Hs_repeatIndex_positions.txt' # Repeat annotation file.
-start18s=3657
-end18s=5527
-start5s=6623
-end5s=6779
-start28s=7935
-end28s=12969
-rRNAend=13314
+repeat_index=os.getcwd() + '/docs/mm9/repeat/rep' # bt2 index for repeat RNA.
+repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm9_repeatRNA.fa' # Sequence of repeat index.
+repeatAnnotation=os.getcwd()+'/docs/mm9/repeat/Mm_repeatIndex_positions.txt' # Repeat annotation file.
+start18s=4007
+end18s=5876
+start5s=6877
+end5s=7033
+start28s=8123
+end28s=12836
+rRNAend=13401
 threshold_rep=0 # RT stop threshold for repeat index.
-index=os.getcwd() + '/docs/hg19/hg19' # bt2 index for mapping.
-index_tag='hg19' # Name of bt2 index.
-genomeFile=os.getcwd()+'/docs/human.hg19.genome' # Genome file for bedGraph, etc.
-genomeForCLIPper='-shg19' # Parameter for CLIPper.
-blacklistregions=os.getcwd()+'/docs/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
-repeatregions=os.getcwd()+'/docs/repeat_masker.bed' # Repeat masker.
-geneAnnot=glob.glob(os.getcwd()+'/docs/genes_types/*') # List of genes by type.
-snoRNAmasker=os.getcwd()+'/docs/snoRNA_reference/snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
-miRNAmasker=os.getcwd()+'/docs/miR_sort_clean.bed' # miRNA masker file.
-fivePUTRBed=os.getcwd()+'/docs/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-threePUTRBed=os.getcwd()+'/docs/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-cdsBed=os.getcwd()+'/docs/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-utrFile=os.getcwd()+'/docs/hg19_ensembl_UTR_annotation.txt' # UTR annotation file.
-genesFile=os.getcwd()+'/docs/hg19_ensembl_genes.txt' # Gene annotation file.
-sizesFile=os.getcwd()+'/docs/hg19.sizes' # Genome sizes file. 
-snoRNAindex=os.getcwd()+'/docs/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
-CLIPPERoutNameDelim='_' # Delimiter that for splitting gene name in the CLIPper windows file.
+index=os.getcwd() + '/docs/mm9/mm9/mm9' # bt2 index for mapping.
+index_tag='mm9' # Name of bt2 index.
+genomeFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome file for bedGraph, etc.
+genomeForCLIPper='-smm9' # Parameter for CLIPper.
+blacklistregions=os.getcwd()+'/docs/mm9/mm9-blacklist.bed' # Blacklist masker.
+repeatregions=os.getcwd()+'/docs/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
+geneAnnot=glob.glob(os.getcwd()+'/docs/mm9/genes_types/*') # List of genes by type. 
+snoRNAmasker=os.getcwd()+'/docs/mm9/snoRNA_reference/mm9_snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
+miRNAmasker=os.getcwd()+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
+fivePUTRBed=os.getcwd()+'/docs/mm9/mm9_5pUTR.bed' # UTR annotation file.
+threePUTRBed=os.getcwd()+'/docs/mm9/mm9_3pUTR.bed' # UTR annotation file. 
+cdsBed=os.getcwd()+'/docs/mm9/mm9_exons.bed' # UTR annotation file. 
+utrFile=os.getcwd()+'/docs/mm9/mm9_ensembl_UTR_annotation.txt' # UTR annotation file. 
+genesFile=os.getcwd()+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
+sizesFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome sizes file. 
+snoRNAindex=os.getcwd()+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
 
 # <codecell>
 
@@ -101,8 +100,6 @@ read1=infilepath+sampleName+'_R1.fastq'
 read2=infilepath+sampleName+'_R2.fastq'
 unzippedreads=[read1,read2]
 
-'''
-
 # <codecell>
 
 def trimReads3p(unzippedreads,adapter3p):
@@ -115,11 +112,11 @@ def trimReads3p(unzippedreads,adapter3p):
         for inread in unzippedreads:
             outread=inread.replace("rawdata/", "results/%s/"%sampleName)
             outread=outread.replace(".fastq", "_3ptrimmed.fastq")
-            process=subprocess.Popen(['fastx_clipper',trimparam,'-n','-l33','-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-            stdout, stderr = process.communicate()
+            #process=subprocess.Popen(['fastx_clipper',trimparam,'-n','-l33','-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
+            #stdout, stderr = process.communicate()
             logOpen.write("Trim 3p end of reads.\n")
-            logOpen.write("Stdout: %s.\n"%stdout)
-            logOpen.write("Stderr: %s.\n"%stderr)
+            #logOpen.write("Stdout: %s.\n"%stdout)
+            #logOpen.write("Stderr: %s.\n"%stderr)
             trimmedReads=trimmedReads+[outread]
         return trimmedReads
     except:
@@ -128,7 +125,6 @@ def trimReads3p(unzippedreads,adapter3p):
 
 print "Trim 3p adapter from reads."
 trimmedReads3p=trimReads3p(unzippedreads,iCLIP3pBarcode)
-
 # <codecell>
 
 def qualityFilter(trim3pReads,q,p):
@@ -141,11 +137,11 @@ def qualityFilter(trim3pReads,q,p):
     try:
         for inread in trim3pReads:
             outread=inread.replace(".fastq", "_filter.fastq")
-            process=subprocess.Popen(['fastq_quality_filter',qualityparam,percentrageparam,'-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-            stdout, stderr=process.communicate()
+            #process=subprocess.Popen(['fastq_quality_filter',qualityparam,percentrageparam,'-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
+            #stdout, stderr=process.communicate()
             logOpen.write("Perform quality filtering.\n")
-            logOpen.write("Stdout: %s.\n"%stdout)
-            logOpen.write("Stderr: %s.\n"%stderr)
+            #logOpen.write("Stdout: %s.\n"%stdout)
+            #logOpen.write("Stderr: %s.\n"%stderr)
             filteredReads=filteredReads+[outread]
         return filteredReads
     except:
@@ -166,16 +162,16 @@ def dupRemoval(filteredReads):
     try:
         for inread in filteredReads:
             outread=inread.replace(".fastq","_nodupe.fasta")
-            process=subprocess.Popen(['fastx_collapser','-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-            stdout, stderr=process.communicate()
+            #process=subprocess.Popen(['fastx_collapser','-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
+            #stdout, stderr=process.communicate()
             logOpen.write("Perform duplicate removal.\n")
-            logOpen.write("Stdout: %s.\n"%stdout)
-            logOpen.write("Stderr: %s.\n"%stderr)
+            #logOpen.write("Stdout: %s.\n"%stdout)
+            #logOpen.write("Stderr: %s.\n"%stderr)
             fastqOut=outread.replace('.fasta', '.fastq') # fastx_collapser returns fasta files, which are then converted to fastq.
-            outfh=open(fastqOut, 'w')
-            process=subprocess.Popen(['perl',program,outread],stdout=outfh)
-            process.communicate() # Wait for the process to complete.
-            os.remove(outread) # Remove the remaining .fasta file.
+            #outfh=open(fastqOut, 'w')
+            #process=subprocess.Popen(['perl',program,outread],stdout=outfh)
+            #process.communicate() # Wait for the process to complete.
+            #os.remove(outread) # Remove the remaining .fasta file.
             noDupes=noDupes+[fastqOut]
         return noDupes
     except:
@@ -196,11 +192,11 @@ def trimReads5p(nodupes,n):
     try:
         for inread in nodupes:
             outread=inread.replace(".fastq", "_5ptrimmed.fastq")
-            process=subprocess.Popen(['fastx_trimmer', trimparam, '-Q33', '-i', inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-            stdout, stderr=process.communicate()
+            #process=subprocess.Popen(['fastx_trimmer', trimparam, '-Q33', '-i', inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
+            #stdout, stderr=process.communicate()
             logOpen.write("Perform 5' barcode trimming.\n")
-            logOpen.write("Stdout: %s.\n"%stdout)
-            logOpen.write("Stderr: %s.\n"%stderr)
+            #logOpen.write("Stdout: %s.\n"%stdout)
+            #logOpen.write("Stderr: %s.\n"%stderr)
             trimmedReads=trimmedReads+[outread]
         return trimmedReads
     except:
@@ -235,8 +231,7 @@ def runBowtie(fastqFiles,index,index_tag):
         logOpen.write("Problem with mapping.\n")
         print "Problem with mapping."
 
-print "Run mapping to repeat index." 
-trimmedReads5p=glob.glob(outfilepath+"*5ptrimmed.fastq") 
+print "Run mapping to repeat index."  
 mappedReads_rep,unmappedReads_rep=runBowtie(trimmedReads5p,repeat_index,'repeat')
 
 # <codecell>
@@ -452,8 +447,6 @@ mergeRT(negativeRTstop,negMerged,threshold,expand,strand)
 negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold+'_%s_allreads.mergedRT.bed'%index_tag
 fileCat(negAndPosMerged,[posMerged,negMerged])
 
-'''
-
 # <codecell>
 
 def runCLIPPER(RTclusterfile,genome,genomeFile):
@@ -495,20 +488,6 @@ def runCLIPPER(RTclusterfile,genome,genomeFile):
     
     return (CLIPPERin,CLIPPERout)
 
-def makeGeneNameDict(fi):
-    # Usage: Make a dictionary that maps RT stop to gene name.
-    # Input: File path to intersected CLIPper windows and input RT stop coordinates.
-    # Output Dictionary mapping RT stop to name.
-    nameDict={}
-    with open(fi, 'r') as infile:
-        for read in infile:
-            elementList=read.strip().split('\t')
-            RT_id='_'.join((elementList[0],elementList[1],elementList[2],elementList[5]))
-            if RT_id not in nameDict:
-                geneName=elementList[9].strip().split(CLIPPERoutNameDelim)[0]
-                nameDict[RT_id]=geneName
-    return nameDict
-
 def modCLIPPERout(CLIPPERin,CLIPPERout):
     # Usage: Process the CLIPper output and isolate lowFDR reads based upon CLIPper windows.
     # Input: .bed file passed into CLIPper and the CLIPper windows file.
@@ -523,13 +502,11 @@ def modCLIPPERout(CLIPPERin,CLIPPERout):
     with open(CLIPPERout,'r') as infile:
         for line in infile:	
             try:
-                # Note that different versions on CLIPper will report the gene name differently. So, we must handle this.
+                # *** Old CLIPper includes a header that cannot be parsed. Handle this. ***
+                # *** Old CLIPper: Ensembl genes are parsed with <name>_<cluster>_<count>. ***
                 chrom,start,end,name,stats,strand,start_2,end_2 = line.strip().split('\t')
-                if CLIPPERoutNameDelim=='_':
-                    readPerCluster=name.strip().split(CLIPPERoutNameDelim)[2]
-                else: 
-                    readPerCluster=(name.strip().split(CLIPPERoutNameDelim)[1]).split('_')[2]
-                geneName=name.strip().split(CLIPPERoutNameDelim)[0]
+                readPerCluster=name.strip().split('_')[2]
+                geneName=name.strip().split('_')[0]
                 f.write('\t'.join((chrom,start,end,name,stats,strand))+'\n')
                 g.write((readPerCluster+'\n'))
                 h.write((geneName+'\n'))
@@ -538,43 +515,16 @@ def modCLIPPERout(CLIPPERin,CLIPPERout):
     f.close()
     g.close()
     h.close()
-    
-    # Intersect input reads with the CLIPper windows, report full result for both, include strand, do not duplicate reads from -a if they interset with multiple windows.
-    clusterWindowInt=CLIPperOutBed.replace('.bed','_fullClusterWindow.bed')
-    outfh=open(clusterWindowInt,'w')
+    CLIPPERlowFDR=CLIPperOutBed.replace('.bed','_lowFDRreads.bed')
+    outfh=open(CLIPPERlowFDR,'w')
+    # Intersect input reads with the CLIPper windows and report full result for both.
     proc=subprocess.Popen([program,'-a',CLIPPERin,'-b',CLIPperOutBed,'-wa','-wb','-s'],stdout=outfh)
     proc.communicate()
     outfh.close()
-    
-    # Use the full window intersection to make a dictionary mapping RTstop to gene name.
-    nameDict=makeGeneNameDict(clusterWindowInt)
-    
-    # Intersect input reads with CLIPper windows, but only report one intersection per read (as reads can overlap with multiple windows).
-    clusterWindowIntUniq=CLIPperOutBed.replace('.bed','_oneIntPerRead.bed')
-    outfh=open(clusterWindowIntUniq,'w')
-    proc=subprocess.Popen([program,'-a',CLIPPERin,'-b',CLIPperOutBed,'-wa','-s','-u'],stdout=outfh)
-    proc.communicate()
-    outfh.close()
-    
-    # Process the uniquly intersected RT stops by adding gene name.
-    CLIPPERlowFDR=CLIPperOutBed.replace('.bed','_lowFDRreads.bed')
-    outfh=open(CLIPPERlowFDR,'w')
-    with open(clusterWindowIntUniq, 'r') as infile:
-        for read in infile:
-            #print read
-            bed=read.strip().split('\t')
-            #print bed
-            RT_id='_'.join((bed[0],bed[1],bed[2],bed[5]))
-            geneName=nameDict[RT_id]
-            outfh.write('\t'.join((bed[0],bed[1],bed[2],geneName,bed[4],bed[5],'\n')))
-    outfh.close()
-    infile.close()
-    
     return (CLIPPERlowFDR,CLIPpeReadsPerCluster,CLIPpeGeneList,CLIPperOutBed)
 
 print "Run CLIPper."
 logOpen.write("Run CLIPper.\n")
-negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold+'_%s_allreads.mergedRT.bed'%index_tag
 CLIPPERio=runCLIPPER(negAndPosMerged,genomeForCLIPper,genomeFile)
 CLIPPERin=CLIPPERio[0]
 CLIPPERout=CLIPPERio[1]
@@ -595,7 +545,7 @@ def getBedCenterPoints(inBed):
     with open(inBed, 'r') as infile:
         for line in infile:	
             elementList=line.strip().split('\t')
-            f.write('\t'.join((elementList[0],str(int(elementList[1])+expand),str(int(elementList[1])+expand+1),elementList[3],elementList[4],elementList[5],'\n')))
+            f.write('\t'.join((elementList[0],str(int(elementList[1])+expand),str(int(elementList[1])+expand+1),elementList[9],elementList[4],elementList[5],'\n')))
     f.close()
     return outBed
 
@@ -711,10 +661,6 @@ filteredProteinCentersBedGraph=makeBedGraph(filteredProteinCodingCenters,genomeF
 
 lincRNAReads=outfilepath+'clipGenes_lincRNA_LowFDRreads.bed'
 filteredLincRNACenters=filterSnoRNAs(getBedCenterPoints(lincRNAReads),snoRNAmasker,miRNAmasker)
-
-# <codecell>
-
-# --- # 
 
 # <codecell>
 
@@ -962,16 +908,9 @@ for ix in repeatAnnotDF.index:
 
 # <codecell>
 
-def makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation):
-    repeat_genome=np.genfromtxt(repeatGenomeBuild,dtype='string')
-    repeat_genome_bases=repeat_genome[1]
-    repeat_genome_size=len(repeat_genome[1])
-    repeatAnnotDF=pd.DataFrame(pd.read_table(repeatAnnotation,header=None))
-    repeatAnnotDF.columns=['Name','Length','IndexStart','IndexEnd']
-    repeatAnnotDF['End_for_extraction']=repeatAnnotDF['IndexEnd']+1 # Python list extraction is not end index inclusive; to extract sequence, use end + 1. 
-    return (repeat_genome_bases,repeatAnnotDF)
-
-repeat_genome_bases,repeatAnnotDF=makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation)
+# %matplotlib inline
+import matplotlib
+matplotlib.rcParams['savefig.dpi'] = 2 * matplotlib.rcParams['savefig.dpi']
 
 # <codecell>
 
@@ -994,7 +933,7 @@ def plot_ReadAccounting(outfilepath,sampleName):
     readsMappedRepeatMask=[outfilepath+sampleName+'_R1_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag,outfilepath+sampleName+'_R2_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag]
     clipperIN=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIPPERin.bed'%(threshold,index_tag)
     clipperOUT=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_lowFDRreads.bed'%(threshold,index_tag)
-    fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped (R1)','RepeatMaped (R2)','Hg19Mapped (R1)','Hg19Mapped (R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask (R1)','RepeatMask (R2)','ClipperIn','ClipperOut']
+    fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMaped(R2)','Hg19Mapped (R1)','Hg19Mapped(R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
     filesToCount=[rawRead1,rawRead2,reads3pTrim[0],reads3pTrim[1],readsFilter[0],readsFilter[1],readsNoDupes[0],readsNoDupes[1],readsMappedReapeat[0],readsMappedReapeat[1],readsMappedHg19[0],readsMappedHg19[1],readsMappedBlacklist[0],readsMappedBlacklist[1],readsMappedRepeatMask[0],readsMappedRepeatMask[1],clipperIN,clipperOUT]
     
     counts=[]
@@ -1339,18 +1278,8 @@ def plot_rDNA(outfilepath,sampleName):
     plt.tick_params(axis='x',labelsize=2.5) 
     plt.tick_params(axis='y',labelsize=2.5)  
     plt.title('RT stops for %s: %s'%(name,len(RTpositions)),fontsize=5)
-    plt.xlim(start,end)  
-    # Record data
-    storageDF=pd.DataFrame()
-    sequence=repeat_genome_bases[start:end+1]
-    storageDF['Sequence']=pd.Series(list(sequence))
-    readsPerBase=np.array(list(hist))
-    readsPerBaseNorm=np.array(list(histPlot))
-    storageDF['RT_stops']=readsPerBase
-    storageDF['RT_stops_norm']=readsPerBaseNorm              
-    outfilepathToSave=outfilepath +'/PlotData_RepeatRNAHist_%s'%name
-    storageDF.to_csv(outfilepathToSave)
-
+    plt.xlim(start,end)       
+    
     # Features of rDNA with respect to start of the bowtie index (index=0)
     rRNAstart=start
     plt.axvspan(start18s+rRNAstart,end18s+rRNAstart,facecolor='g',alpha=0.5)
@@ -1431,11 +1360,6 @@ snoTypes['Fraction']=snoTypes['Reads']/snoTypes['Reads'].sum(axis=1)
 outfilepathToSave=outfilepath+'/PlotData_readsPerSnoRNAType'
 snoTypes.to_csv(outfilepathToSave)
 
-snoTypesAndGenes=pd.DataFrame(bf_sno.groupby(['Type','name_snoRNA']).size())
-snoTypesAndGenes.columns=['Count_per_gene']
-outfilepathToSave=outfilepath+'/PlotData_geneStatsPerSnoRNAType'
-snoTypesAndGenes.to_csv(outfilepathToSave)
-
 fig5=plt.figure(5)
 ax=plt.subplot(2,2,1)
 pie_wedges=ax.pie(snoTypes['Fraction'],labels=snoTypes.index,labeldistance=1.1,autopct='%1.1f%%')
@@ -1470,15 +1394,6 @@ for sType in set(bf_sno['Type']):
     plt.tick_params(axis='y',labelsize=5)  
     plt.xlabel('Fraction of gene body (5p - 3p)',fontsize=5)
     plt.title('Binding profile for %s'%title,fontsize=5)
-    plt.xlim([0,1])
-    
-    # Record data
-    storageDF=pd.DataFrame()
-    storageDF['bins']=pd.Series(bins)
-    storageDF['hist']=pd.Series(hist)
-    outfilepathToSave=outfilepath+'/PlotData_snoRNAhistogram_%s'%sType
-    storageDF.to_csv(outfilepathToSave)
-    
     i+=1
 
 fig5.tight_layout()

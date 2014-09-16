@@ -47,7 +47,7 @@ q=25 # Minimum quality score to keep during filtering.
 p=80 # Percentage of bases that must have quality > q during filtering.    
 iCLIP5pBasesToTrim=13 # Number of reads to trim from 5' end of clip reads.
 k='1' # k=N distinct, valid alignments for each read in bt2 mapping.
-threshold=2 # Sum of RT stops (for both replicates) required to keep file. 
+threshold=3 # Sum of RT stops (for both replicates) required to keep file. 
 expand=15 # Bases to expand around RT position after RT stops are merged.
 repeat_index=os.getcwd() + '/docs/repeat/rep' # bt2 index for repeat RNA.
 repeatGenomeBuild=os.getcwd()+'/docs/repeat/repeatRNA.fa' # Sequence of repeat index.
@@ -59,7 +59,7 @@ end5s=6779
 start28s=7935
 end28s=12969
 rRNAend=13314
-threshold_rep=0 # RT stop threshold for repeat index.
+threshold_rep=1 # RT stop threshold for repeat index.
 index=os.getcwd() + '/docs/hg19/hg19' # bt2 index for mapping.
 index_tag='hg19' # Name of bt2 index.
 genomeFile=os.getcwd()+'/docs/human.hg19.genome' # Genome file for bedGraph, etc.
@@ -100,8 +100,6 @@ logOpen.write("Processing sample: "+sampleName+'\n')
 read1=infilepath+sampleName+'_R1.fastq'
 read2=infilepath+sampleName+'_R2.fastq'
 unzippedreads=[read1,read2]
-
-'''
 
 # <codecell>
 
@@ -211,7 +209,7 @@ print "Perform 5' barcode trimming."
 trimmedReads5p=trimReads5p(nodupReads,iCLIP5pBasesToTrim)
 
 # <codecell>
-
+'''
 def runBowtie(fastqFiles,index,index_tag):
     # Usage: Read mapping to reference.
     # Input: Fastq files of replicate trimmed read files.
@@ -235,8 +233,7 @@ def runBowtie(fastqFiles,index,index_tag):
         logOpen.write("Problem with mapping.\n")
         print "Problem with mapping."
 
-print "Run mapping to repeat index." 
-trimmedReads5p=glob.glob(outfilepath+"*5ptrimmed.fastq") 
+print "Run mapping to repeat index."  
 mappedReads_rep,unmappedReads_rep=runBowtie(trimmedReads5p,repeat_index,'repeat')
 
 # <codecell>
@@ -452,8 +449,6 @@ mergeRT(negativeRTstop,negMerged,threshold,expand,strand)
 negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold+'_%s_allreads.mergedRT.bed'%index_tag
 fileCat(negAndPosMerged,[posMerged,negMerged])
 
-'''
-
 # <codecell>
 
 def runCLIPPER(RTclusterfile,genome,genomeFile):
@@ -561,9 +556,7 @@ def modCLIPPERout(CLIPPERin,CLIPPERout):
     outfh=open(CLIPPERlowFDR,'w')
     with open(clusterWindowIntUniq, 'r') as infile:
         for read in infile:
-            #print read
             bed=read.strip().split('\t')
-            #print bed
             RT_id='_'.join((bed[0],bed[1],bed[2],bed[5]))
             geneName=nameDict[RT_id]
             outfh.write('\t'.join((bed[0],bed[1],bed[2],geneName,bed[4],bed[5],'\n')))
@@ -574,7 +567,6 @@ def modCLIPPERout(CLIPPERin,CLIPPERout):
 
 print "Run CLIPper."
 logOpen.write("Run CLIPper.\n")
-negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold+'_%s_allreads.mergedRT.bed'%index_tag
 CLIPPERio=runCLIPPER(negAndPosMerged,genomeForCLIPper,genomeFile)
 CLIPPERin=CLIPPERio[0]
 CLIPPERout=CLIPPERio[1]
@@ -994,7 +986,7 @@ def plot_ReadAccounting(outfilepath,sampleName):
     readsMappedRepeatMask=[outfilepath+sampleName+'_R1_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag,outfilepath+sampleName+'_R2_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag]
     clipperIN=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIPPERin.bed'%(threshold,index_tag)
     clipperOUT=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_lowFDRreads.bed'%(threshold,index_tag)
-    fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped (R1)','RepeatMaped (R2)','Hg19Mapped (R1)','Hg19Mapped (R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask (R1)','RepeatMask (R2)','ClipperIn','ClipperOut']
+    fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped (R1)','RepeatMapped (R2)','Hg19Mapped (R1)','Hg19Mapped (R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask (R1)','RepeatMask (R2)','ClipperIn','ClipperOut']
     filesToCount=[rawRead1,rawRead2,reads3pTrim[0],reads3pTrim[1],readsFilter[0],readsFilter[1],readsNoDupes[0],readsNoDupes[1],readsMappedReapeat[0],readsMappedReapeat[1],readsMappedHg19[0],readsMappedHg19[1],readsMappedBlacklist[0],readsMappedBlacklist[1],readsMappedRepeatMask[0],readsMappedRepeatMask[1],clipperIN,clipperOUT]
     
     counts=[]
@@ -1531,5 +1523,5 @@ fig6.savefig(outfilepath+'Figure6.pdf',format='pdf',bbox_inches='tight',dpi=150,
 logOpen.close()
 
 # <codecell>
-
+'''
 
