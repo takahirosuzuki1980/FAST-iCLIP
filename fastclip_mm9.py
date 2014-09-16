@@ -90,7 +90,7 @@ if org == 'human':
 	CLIPPERoutNameDelim='_' # Delimiter that for splitting gene name in the CLIPper windows file.
 elif org == 'mouse':
 	repeat_index=os.getcwd() + '/docs/mm9/repeat/rep' # bt2 index for repeat RNA.
-	repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm9_repeatRNA.fa' # Sequence of repeat index.
+	repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm_repeatRNA.fa' # Sequence of repeat index.
 	repeatAnnotation=os.getcwd()+'/docs/mm9/repeat/Mm_repeatIndex_positions.txt' # Repeat annotation file.
 	start18s=4007
 	end18s=5876
@@ -344,8 +344,8 @@ mappedBedFiles_rep=runSamtools(mappedReads_rep)
 
 # <codecell>
 
-def seperateStrands(mappedReads):
-	# Usage: Seperate positive and negative strands.
+def separateStrands(mappedReads):
+	# Usage: separate positive and negative strands.
 	# Input: Paths to two bed files from Samtools.
 	# Output: Paths to bed files isolated by strand.
 	negativeStrand=[]
@@ -386,7 +386,7 @@ def modifyNegativeStrand(negativeStrandReads):
 
 def isolate5prime(strandedReads):
 	# Usage: Isolate only the Chr, 5' position (RT stop), and strand.
-	# Input: Bed file paths to strand seperated reads.
+	# Input: Bed file paths to strand separated reads.
 	# Output: Paths RT stop files.
 	RTstops=[]
 	for reads in strandedReads:
@@ -403,7 +403,7 @@ def isolate5prime(strandedReads):
 
 print "RT stop isolation (repeat)."
 logOpen.write("RT stop isolation (repeat).\n")
-readsByStrand_rep=seperateStrands(mappedBedFiles_rep)
+readsByStrand_rep=separateStrands(mappedBedFiles_rep)
 negativeRTstop_rep=isolate5prime(modifyNegativeStrand(readsByStrand_rep[0])) 
 positiveRTstop_rep=isolate5prime(readsByStrand_rep[1]) 
 
@@ -530,7 +530,7 @@ maskedBedFiles=runRepeatMask(blacklistedBedFiles,repeatregions)
 
 print "RT stop isolation."
 logOpen.write("RT stop isolation.\n")
-readsByStrand=seperateStrands(maskedBedFiles)
+readsByStrand=separateStrands(maskedBedFiles)
 negativeRTstop=isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
 positiveRTstop=isolate5prime(readsByStrand[1]) 
 
@@ -629,11 +629,12 @@ def modCLIPPERout(CLIPPERin,CLIPPERout):
 
 print "Run CLIPper."
 logOpen.write("Run CLIPper.\n")
+
 CLIPPERio=runCLIPPER(negAndPosMerged,genomeForCLIPper,genomeFile)
 CLIPPERin=CLIPPERio[0]
 CLIPPERout=CLIPPERio[1]
 clipperStats=modCLIPPERout(CLIPPERin,CLIPPERout)
-CLIPPERlowFDR=clipperStats[0] # Low FDR reads returned filtred through CLIPper windows
+CLIPPERlowFDR=clipperStats[0] # Low FDR reads returned filtered through CLIPper windows
 CLIPpeReadsPerCluster=clipperStats[1] # Number of reads per CLIPper cluster
 CLIPpeGeneList=clipperStats[2] # Gene names returned from the CLIPper file
 CLIPperOutBed=clipperStats[3] # CLIPper windows as a bed file
@@ -641,9 +642,9 @@ CLIPperOutBed=clipperStats[3] # CLIPper windows as a bed file
 # <codecell>
 
 def getBedCenterPoints(inBed):
-	# Usage: Obtain ceter coordiantes of bedFile.
+	# Usage: Obtain center coordinates of bedFile.
 	# Input: BedFile.
-	# Output: Center coodinates returned.
+	# Output: Center coordinates returned.
 	outBed=inBed.replace('.bed','_centerCoord.bed')	
 	f=open(outBed, 'w')
 	with open(inBed, 'r') as infile:
@@ -959,7 +960,7 @@ def getGeneStartStop(bedFile,geneRef):
 	except ValueError:
 		print "No reads in %s"%bedFile
 
-print "ncRNA gene body anaysis."
+print "ncRNA gene body analysis."
 geneStartStopRepo=os.getcwd()+'/docs/all_genes.txt'
 geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
 remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
