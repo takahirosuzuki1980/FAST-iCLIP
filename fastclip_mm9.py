@@ -86,7 +86,7 @@ if org == 'human':
 	sizesFile=os.getcwd()+'/docs/hg19.sizes' # Genome sizes file. 
 	snoRNAindex=os.getcwd()+'/docs/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
 	CLIPPERoutNameDelim='_' # Delimiter that for splitting gene name in the CLIPper windows file.
-else if org == 'mouse':
+elif org == 'mouse':
 	repeat_index=os.getcwd() + '/docs/mm9/repeat/rep' # bt2 index for repeat RNA.
 	repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm9_repeatRNA.fa' # Sequence of repeat index.
 	repeatAnnotation=os.getcwd()+'/docs/mm9/repeat/Mm_repeatIndex_positions.txt' # Repeat annotation file.
@@ -103,7 +103,7 @@ else if org == 'mouse':
 	genomeFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome file for bedGraph, etc.
 	genomeForCLIPper='-smm9' # Parameter for CLIPper.
 	blacklistregions=os.getcwd()+'/docs/mm9/mm9-blacklist.bed' # Blacklist masker.
-	repeatregions=os.getcwd()+'/docs/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
+	repeatregions=os.getcwd()+'/docs/mm9/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
 	geneAnnot=glob.glob(os.getcwd()+'/docs/mm9/genes_types/*') # List of genes by type. 
 	snoRNAmasker=os.getcwd()+'/docs/mm9/snoRNA_reference/mm9_snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
 	miRNAmasker=os.getcwd()+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
@@ -181,7 +181,7 @@ def qualityFilter(trim3pReads,q,p):
 	try:
 		for inread in trim3pReads:
 			outread=inread.replace(".fastq", "_filter.fastq")
-			if glob.glob(outfilepath + '*_filter.fastq') and glob.glob(outfilepath + '*_nodupe.fasta'):
+			if glob.glob(outread) and glob.glob(outfilepath + '*_nodupe.fastq'):
 				filteredReads=filteredReads+[outread]
 				print "Quality filter already done."
 				logOpen.write("Quality filter already done.\n")
@@ -212,8 +212,8 @@ def dupRemoval(filteredReads):
 	try:
 		for inread in filteredReads:
 			outread=inread.replace(".fastq","_nodupe.fasta")
-			if glob.glob(outread) and glob.glob(outfilepath + '*_nodupe.fastq') and glob.glob(outfilepath + '*_5ptrimmed.fasta'):
-				fastqOut=outread.replace('.fasta', '.fastq') 
+			fastqOut=outread.replace('.fasta', '.fastq')
+			if glob.glob(fastqOut): 
 				noDupes=noDupes+[fastqOut]
 				print "Duplicate removal already done."
 				logOpen.write("Duplicate removal already done.\n")
@@ -224,7 +224,6 @@ def dupRemoval(filteredReads):
 			logOpen.write("Perform duplicate removal.\n")
 			logOpen.write("Stdout: %s.\n"%stdout)
 			logOpen.write("Stderr: %s.\n"%stderr)
-			fastqOut=outread.replace('.fasta', '.fastq') # fastx_collapser returns fasta files, which are then converted to fastq.
 			outfh=open(fastqOut, 'w')
 			process=subprocess.Popen(['perl',program,outread],stdout=outfh)
 			process.communicate() # Wait for the process to complete.
@@ -319,7 +318,8 @@ def runSamtools(samfiles):
 			bamfile_sort = bamfile.replace('.bam','_sorted') 
 			bedFile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
 			outBedFiles=outBedFiles+[bedFile]   
-			if glob.glob(bamfile) and glob.glob(bamfile_sort) and glob.glob(bedFile): 
+
+			if glob.glob(bamfile) and glob.glob(bedFile):
 				print "Samtools already done."
 				logOpen.write("Samtools already done.\n")
 				continue
@@ -391,7 +391,7 @@ def isolate5prime(strandedReads):
 		RTstop=reads.replace('.bed','_RTstop.bed')
 		with open(reads, 'r') as infile:
 			RTstops=RTstops+[RTstop]
-			if glob.glob(RTstops): continue
+			if glob.glob(RTstop): continue
 			
 			f = open(RTstop, 'w')
 			for line in infile:	
@@ -446,13 +446,18 @@ print "Merge RT stops."
 logOpen.write("Merge RT stops.\n")
 posMerged=outfilepath+sampleName+'_repeat_positivereads.mergedRT'
 strand='+'
-mergeRT(positiveRTstop_rep,posMerged,threshold_rep,expand,strand)
 negMerged=outfilepath+sampleName+'_repeat_negativereads.mergedRT'
 strand='-'
-mergeRT(negativeRTstop_rep,negMerged,threshold_rep,expand,strand)
 negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold_rep+'_repeat_allreads.mergedRT.bed'
-fileCat(negAndPosMerged,[posMerged,negMerged])
 
+if glob.glob(negAndPosMerged):
+	print "RT stops already merged."
+	logOpen.write("RT stops already merged.\n")
+else:
+	mergeRT(positiveRTstop,posMerged,threshold,expand,strand)
+	mergeRT(negativeRTstop,negMerged,threshold,expand,strand)
+	fileCat(negAndPosMerged,[posMerged,negMerged])
+	
 # <codecell>
 
 print "Run mapping to %s."%index_tag
@@ -521,12 +526,18 @@ print "Merge RT stops."
 logOpen.write("Merge RT stops.\n")
 posMerged=outfilepath+sampleName+'_%s_positivereads.mergedRT'%index_tag
 strand='+'
-mergeRT(positiveRTstop,posMerged,threshold,expand,strand)
 negMerged=outfilepath+sampleName+'_%s_negativereads.mergedRT'%index_tag
 strand='-'
-mergeRT(negativeRTstop,negMerged,threshold,expand,strand)
 negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold+'_%s_allreads.mergedRT.bed'%index_tag
-fileCat(negAndPosMerged,[posMerged,negMerged])
+
+if glob.glob(negAndPosMerged):
+	print "RT stops already merged."
+	logOpen.write("RT stops already merged.\n")
+else:
+	mergeRT(positiveRTstop,posMerged,threshold,expand,strand)
+	mergeRT(negativeRTstop,negMerged,threshold,expand,strand)
+	fileCat(negAndPosMerged,[posMerged,negMerged])
+
 
 # <codecell>
 
