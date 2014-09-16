@@ -25,10 +25,12 @@ global logOpen
 
 ### File name ###
 if len(sys.argv) != 5: 
-	print "Incorrect number of parameters entered."
+	print "\nFASTclip: incorrect number of parameters entered.\n"
 	print "Usage: fastclip_mm9.py <sample_name> <human/mouse> <input folder> <output folder>"
-	print "\tInput folder: folder where fastq files are located."
-	print "\tOutput folder: folder where subfolder will be made to house output files"
+	print "Example: fastclip_mm9.py MMhur mouse /home/lmartin/CLIP/rawdata/ /home/lmartin/CLIP/results/\n"
+	print "\tOrganism: only 'human' or 'mouse' is allowed at this time."
+	print "\tInput folder: full path to folder where fastq files are located."
+	print "\tOutput folder: full path folder where subfolder will be made to house output files.\n"
 	exit()
 sampleName=sys.argv[1]
 org=sys.argv[2]
