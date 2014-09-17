@@ -59,6 +59,8 @@ iCLIP5pBasesToTrim=13 # Number of reads to trim from 5' end of clip reads.
 k='1' # k=N distinct, valid alignments for each read in bt2 mapping.
 threshold=3 # Sum of RT stops (for both replicates) required to keep file. 
 expand=15 # Bases to expand around RT position after RT stops are merged.
+CLIPPERoutNameDelim='_' # Delimiter that for splitting gene name in the CLIPper windows file.
+
 if org == 'human':
 	repeat_index=os.getcwd() + '/docs/repeat/rep' # bt2 index for repeat RNA.
 	repeatGenomeBuild=os.getcwd()+'/docs/repeat/repeatRNA.fa' # Sequence of repeat index.
@@ -87,7 +89,7 @@ if org == 'human':
 	genesFile=os.getcwd()+'/docs/hg19_ensembl_genes.txt' # Gene annotation file.
 	sizesFile=os.getcwd()+'/docs/hg19.sizes' # Genome sizes file. 
 	snoRNAindex=os.getcwd()+'/docs/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
-	CLIPPERoutNameDelim='_' # Delimiter that for splitting gene name in the CLIPper windows file.
+	geneStartStopRepo=os.getcwd()+'/docs/all_genes.txt'
 elif org == 'mouse':
 	repeat_index=os.getcwd() + '/docs/mm9/repeat/rep' # bt2 index for repeat RNA.
 	repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm_repeatRNA.fa' # Sequence of repeat index.
@@ -116,6 +118,8 @@ elif org == 'mouse':
 	genesFile=os.getcwd()+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
 	sizesFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome sizes file. 
 	snoRNAindex=os.getcwd()+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
+	geneStartStopRepo=os.getcwd()+'/docs/mm9/all_genes.txt'
+
 
 # <codecell>
 
@@ -942,12 +946,12 @@ def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
 	proc2 = subprocess.Popen(program2,shell=True)
 	proc2.communicate()
 
-print "Gene body analysis."
-logOpen.write("Gene body analysis.\n")
-bedGraphProtein=makeBedGraph(bedFile_pc,genomeFile)
-makeAvgGraph(bedGraphProtein,utrFile,genesFile,sizesFile)
+# print "Gene body analysis."
+# logOpen.write("Gene body analysis.\n")
+# # bedGraphProtein=makeBedGraph(bedFile_pc,genomeFile)
+# # makeAvgGraph(bedGraphProtein,utrFile,genesFile,sizesFile)
 
-# <codecell>
+# # <codecell>
 
 def getGeneStartStop(bedFile,geneRef):
 	try:
@@ -962,7 +966,6 @@ def getGeneStartStop(bedFile,geneRef):
 		print "No reads in %s"%bedFile
 
 print "ncRNA gene body analysis."
-geneStartStopRepo=os.getcwd()+'/docs/all_genes.txt'
 geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
 remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
 for bedFile in remaining:
@@ -978,7 +981,7 @@ ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Star
 outfilepathToSave=bedFile_linc.replace(".bed",".geneStartStop")
 ncRNA_startStop.to_csv(outfilepathToSave)
 
-# <codecell>
+# # <codecell>
 
 def makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation):
 	repeat_genome=np.genfromtxt(repeatGenomeBuild,dtype='string')
@@ -1071,7 +1074,7 @@ def plot_ReadAccounting(outfilepath,sampleName):
 	readDF.to_csv(outfilepathToSave)
 
 print "Making Figure 1"
-logOpen.write("Making Figure 1\n"
+logOpen.write("Making Figure 1\n")
 plt.subplot(2,3,1) 
 plot_ReadAccounting(outfilepath,sampleName)
 
@@ -1103,8 +1106,8 @@ def plot_BoundGeneTypes(outfilepath,sampleName):
 	plt.tick_params(axis='yticks',labelsize=5)
 	plt.title('Bound genes by class',fontsize=5)
 	
-plt.subplot(2,3,6)
-plot_BoundGeneTypes(outfilepath,sampleName)
+# plt.subplot(2,3,6)
+# plot_BoundGeneTypes(outfilepath,sampleName)
 
 # <codecell>
 
@@ -1215,7 +1218,7 @@ plot_BoundGeneTypes(outfilepath,sampleName)
 fig1.tight_layout()
 
 fig1.savefig(outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-fig1.savefig(outfilepath+'Figure1.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+# fig1.savefig(outfilepath+'Figure1.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
 # <codecell>
 
@@ -1236,7 +1239,7 @@ def plot_mRNAgeneBodyDist(outfilepath,sampleName):
 
 	
 print "Making Figure 2"
-logOpen.write("Making Figure 2\n"
+logOpen.write("Making Figure 2\n")
 plt.subplot2grid((2,3),(0,0),colspan=3)
 plot_mRNAgeneBodyDist(outfilepath,sampleName)
 
@@ -1366,7 +1369,7 @@ def plot_repeatRNA(outfilepath,sampleName):
 
 	
 print "Making Figure 3"
-logOpen.write("Making Figure 3\n"
+logOpen.write("Making Figure 3\n")
 fig3=plt.figure(3)
 plot_repeatRNA(outfilepath,sampleName)
 fig3.tight_layout()
@@ -1446,7 +1449,7 @@ def plot_rDNA(outfilepath,sampleName):
 	plt.tight_layout()
 
 print "Making Figure 4"
-logOpen.write("Making Figure 4\n"
+logOpen.write("Making Figure 4\n")
 fig4=plt.figure(4)
 plot_rDNA(outfilepath,sampleName)
 fig4.tight_layout()
@@ -1469,7 +1472,7 @@ def getBindingFrac(type_specific):
 
 	
 print "Making Figure 5"
-logOpen.write("Making Figure 5\n"
+logOpen.write("Making Figure 5\n")
 print "snoRNA gene body analysis."
 logOpen.write("snoRNA gene body analysis.\n")
 bf_sno=pd.read_table(outfilepath+"clipGenes_snoRNA_LowFDRreads.bed",header=None)
@@ -1536,9 +1539,9 @@ def getncRNABindingFrac(type_specific):
 
 	
 print "Making Figure 6"
-logOpen.write("Making Figure 6\n"
+logOpen.write("Making Figure 6\n")
 print "ncRNA gene body analysis."
-st_stopFiles=glob.glob(outfilepath+"*.geneStartStop")
+st_stopFiles=glob.glob(outfilepath+"*lincRNA*.geneStartStop")
 st_stopFiles=[f for f in st_stopFiles if 'rRNA' not in f]
 fig6=plt.figure(6)
 plotDim=math.ceil(math.sqrt(len(st_stopFiles)))
