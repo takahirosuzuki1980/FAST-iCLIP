@@ -922,6 +922,7 @@ def makeTab(bedGraph,genesFile,sizesFile):
 	program = os.getcwd() + '/bin/bedGraph2tab.pl'
 	program2 = 'wait'
 	outfile=bedGraph.replace('.bedgraph','.tab')
+	#if glob.glob(outfile): return outfile
 	proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
 	proc.communicate()
 	proc2 = subprocess.Popen(program2,shell=True)
@@ -929,9 +930,9 @@ def makeTab(bedGraph,genesFile,sizesFile):
 	return outfile
 
 def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
-	# Usage: Generate a matrix of read itensity values across gene body.
+	# Usage: Generate a matrix of read intensity values across gene body.
 	# Input: BedGraph.
-	# Output: Generates two matricies.
+	# Output: Generates two matrices.
 	program= os.getcwd() + '/bin/averageGraph_scaled_tab.pl'
 	program2 = 'wait'
 	tabFile=makeTab(bedGraph,genesFile,sizesFile)
@@ -1038,7 +1039,8 @@ def plot_ReadAccounting(outfilepath,sampleName):
 	readsMappedRepeatMask=[outfilepath+sampleName+'_R1_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag,outfilepath+sampleName+'_R2_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag]
 	clipperIN=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIPPERin.bed'%(threshold,index_tag)
 	clipperOUT=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_lowFDRreads.bed'%(threshold,index_tag)
-	fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMaped(R2)','Hg19Mapped (R1)','Hg19Mapped(R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
+	if org == 'human': fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMapped(R2)','Hg19Mapped (R1)','Hg19Mapped(R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
+	elif org == 'mouse': fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMapped(R2)','Mm9Mapped (R1)','Mm9Mapped(R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
 	filesToCount=[rawRead1,rawRead2,reads3pTrim[0],reads3pTrim[1],readsFilter[0],readsFilter[1],readsNoDupes[0],readsNoDupes[1],readsMappedReapeat[0],readsMappedReapeat[1],readsMappedHg19[0],readsMappedHg19[1],readsMappedBlacklist[0],readsMappedBlacklist[1],readsMappedRepeatMask[0],readsMappedRepeatMask[1],clipperIN,clipperOUT]
 	
 	counts=[]
@@ -1068,6 +1070,8 @@ def plot_ReadAccounting(outfilepath,sampleName):
 	outfilepathToSave=outfilepath + '/PlotData_ReadsPerPipeFile'
 	readDF.to_csv(outfilepathToSave)
 
+print "Making Figure 1"
+logOpen.write("Making Figure 1\n"
 plt.subplot(2,3,1) 
 plot_ReadAccounting(outfilepath,sampleName)
 
@@ -1230,6 +1234,9 @@ def plot_mRNAgeneBodyDist(outfilepath,sampleName):
 	plt.tick_params(axis='y',labelsize=5) 
 	plt.title('CLIP signal across average mRNA transcript.',fontsize=5)
 
+	
+print "Making Figure 2"
+logOpen.write("Making Figure 2\n"
 plt.subplot2grid((2,3),(0,0),colspan=3)
 plot_mRNAgeneBodyDist(outfilepath,sampleName)
 
@@ -1357,6 +1364,9 @@ def plot_repeatRNA(outfilepath,sampleName):
 			print "No reads for repeatRNA %s"%name			  
 	plt.tight_layout()
 
+	
+print "Making Figure 3"
+logOpen.write("Making Figure 3\n"
 fig3=plt.figure(3)
 plot_repeatRNA(outfilepath,sampleName)
 fig3.tight_layout()
@@ -1435,6 +1445,8 @@ def plot_rDNA(outfilepath,sampleName):
 	plt.title('28s Region',fontsize=5)
 	plt.tight_layout()
 
+print "Making Figure 4"
+logOpen.write("Making Figure 4\n"
 fig4=plt.figure(4)
 plot_rDNA(outfilepath,sampleName)
 fig4.tight_layout()
@@ -1455,8 +1467,11 @@ def getBindingFrac(type_specific):
 	DF_snoProfile=pd.concat([neg_data,pos_data])
 	return DF_snoProfile
 
-print "snoRNA gene body anaysis."
-# logOpen.write("Gene body analysis.\n")
+	
+print "Making Figure 5"
+logOpen.write("Making Figure 5\n"
+print "snoRNA gene body analysis."
+logOpen.write("snoRNA gene body analysis.\n")
 bf_sno=pd.read_table(outfilepath+"clipGenes_snoRNA_LowFDRreads.bed",header=None)
 bf_sno.columns=['Chr','Start','End','CLIPper_name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
 snoTypes=pd.DataFrame(bf_sno.groupby('Type').size())
@@ -1519,7 +1534,10 @@ def getncRNABindingFrac(type_specific):
 	DF_ncRNAProfile=pd.concat([neg_data,pos_data])
 	return DF_ncRNAProfile
 
-print "ncRNA gene body anaysis."
+	
+print "Making Figure 6"
+logOpen.write("Making Figure 6\n"
+print "ncRNA gene body analysis."
 st_stopFiles=glob.glob(outfilepath+"*.geneStartStop")
 st_stopFiles=[f for f in st_stopFiles if 'rRNA' not in f]
 fig6=plt.figure(6)
