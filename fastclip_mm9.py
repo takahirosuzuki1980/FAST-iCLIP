@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import shutil
 from optparse import OptionParser
 mpl.rcParams['savefig.dpi'] = 2 * mpl.rcParams['savefig.dpi']
+mpl.rcParams['path.simplify'] = True
 
 # <codecell>
 
@@ -460,8 +461,8 @@ if glob.glob(negAndPosMerged):
 	print "RT stops already merged."
 	logOpen.write("RT stops already merged.\n")
 else:
-	mergeRT(positiveRTstop,posMerged,threshold,expand,strand)
-	mergeRT(negativeRTstop,negMerged,threshold,expand,strand)
+	mergeRT(positiveRTstop_rep,posMerged,threshold,expand,strand)
+	mergeRT(negativeRTstop_rep,negMerged,threshold,expand,strand)
 	fileCat(negAndPosMerged,[posMerged,negMerged])
 	
 # <codecell>
@@ -700,7 +701,7 @@ bedGraphCLIPout=makeBedGraph(CLIPPERlowFDR,genomeFile)
 CLIPPERlowFDRcenters=getBedCenterPoints(CLIPPERlowFDR)
 allLowFDRCentersBedGraph=makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
 
-# <codecell>
+# # <codecell>
 
 def filterSnoRNAs(proteinCodingReads,snoRNAmasker,miRNAmasker):
 	# Usage: Filter snoRNA and miRNAs from protein coding reads.
@@ -771,7 +772,7 @@ filteredProteinCentersBedGraph=makeBedGraph(filteredProteinCodingCenters,genomeF
 lincRNAReads=outfilepath+'clipGenes_lincRNA_LowFDRreads.bed'
 filteredLincRNACenters=filterSnoRNAs(getBedCenterPoints(lincRNAReads),snoRNAmasker,miRNAmasker)
 
-# <codecell>
+# # <codecell>
 
 def sortFilteredBed(bedFile):
 	bf=pd.DataFrame(pd.read_table(bedFile,header=None))
@@ -878,7 +879,7 @@ bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
 centerCoordinates=makeClusterCenter(CLIPperOutBed) 
 getClusterIntensity(bedGraphCLIPin,centerCoordinates)
 
-# <codecell>
+# # <codecell>
 
 def partitionReadsByUTR(infile,UTRmask,utrReads,notutrReads):
 	program = 'intersectBed'
@@ -920,7 +921,7 @@ geneCounts_3p.to_csv(outfilepathToSave)
 outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
 geneCounts_cds.to_csv(outfilepathToSave) 
 
-# <codecell>
+# # <codecell>
 
 def makeTab(bedGraph,genesFile,sizesFile):
 	program = os.getcwd() + '/bin/bedGraph2tab.pl'
@@ -946,10 +947,10 @@ def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
 	proc2 = subprocess.Popen(program2,shell=True)
 	proc2.communicate()
 
-# print "Gene body analysis."
-# logOpen.write("Gene body analysis.\n")
-# # bedGraphProtein=makeBedGraph(bedFile_pc,genomeFile)
-# # makeAvgGraph(bedGraphProtein,utrFile,genesFile,sizesFile)
+print "Gene body analysis."
+logOpen.write("Gene body analysis.\n")
+bedGraphProtein=makeBedGraph(bedFile_pc,genomeFile)
+makeAvgGraph(bedGraphProtein,utrFile,genesFile,sizesFile)
 
 # # <codecell>
 
@@ -1015,7 +1016,7 @@ for ix in repeatAnnotDF.index:
 	outfilepathToSave=outfilepath + '/PlotData_RepeatRNAreads_%s'%repName
 	gene_hits.to_csv(outfilepathToSave)
 
-# <codecell>
+# # <codecell>
 
 # %matplotlib inline
 import matplotlib
@@ -1218,7 +1219,7 @@ plot_BoundGeneTypes(outfilepath,sampleName)
 fig1.tight_layout()
 
 fig1.savefig(outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-# fig1.savefig(outfilepath+'Figure1.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+fig1.savefig(outfilepath+'Figure1.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
 # <codecell>
 
@@ -1541,7 +1542,7 @@ def getncRNABindingFrac(type_specific):
 print "Making Figure 6"
 logOpen.write("Making Figure 6\n")
 print "ncRNA gene body analysis."
-st_stopFiles=glob.glob(outfilepath+"*lincRNA*.geneStartStop")
+st_stopFiles=glob.glob(outfilepath+"*.geneStartStop")
 st_stopFiles=[f for f in st_stopFiles if 'rRNA' not in f]
 fig6=plt.figure(6)
 plotDim=math.ceil(math.sqrt(len(st_stopFiles)))
