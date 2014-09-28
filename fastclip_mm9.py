@@ -452,17 +452,15 @@ def mergeRT(RTstopFiles,outfilename,threshold,expand,strand):
 print "Merge RT stops."
 logOpen.write("Merge RT stops.\n")
 posMerged=outfilepath+sampleName+'_repeat_positivereads.mergedRT'
-strand='+'
 negMerged=outfilepath+sampleName+'_repeat_negativereads.mergedRT'
-strand='-'
 negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold_rep+'_repeat_allreads.mergedRT.bed'
 
 if glob.glob(negAndPosMerged):
 	print "RT stops already merged."
 	logOpen.write("RT stops already merged.\n")
 else:
-	mergeRT(positiveRTstop_rep,posMerged,threshold,expand,strand)
-	mergeRT(negativeRTstop_rep,negMerged,threshold,expand,strand)
+	mergeRT(positiveRTstop_rep,posMerged,threshold,expand,'+')
+	mergeRT(negativeRTstop_rep,negMerged,threshold,expand,'-')
 	fileCat(negAndPosMerged,[posMerged,negMerged])
 	
 # <codecell>
@@ -542,17 +540,15 @@ positiveRTstop=isolate5prime(readsByStrand[1])
 print "Merge RT stops."
 logOpen.write("Merge RT stops.\n")
 posMerged=outfilepath+sampleName+'_%s_positivereads.mergedRT'%index_tag
-strand='+'
 negMerged=outfilepath+sampleName+'_%s_negativereads.mergedRT'%index_tag
-strand='-'
 negAndPosMerged=outfilepath+sampleName+'_threshold=%s'%threshold+'_%s_allreads.mergedRT.bed'%index_tag
 
 if glob.glob(negAndPosMerged):
 	print "RT stops already merged."
 	logOpen.write("RT stops already merged.\n")
 else:
-	mergeRT(positiveRTstop,posMerged,threshold,expand,strand)
-	mergeRT(negativeRTstop,negMerged,threshold,expand,strand)
+	mergeRT(positiveRTstop,posMerged,threshold,expand,'+')
+	mergeRT(negativeRTstop,negMerged,threshold,expand,'-')
 	fileCat(negAndPosMerged,[posMerged,negMerged])
 
 
