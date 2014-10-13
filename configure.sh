@@ -1,0 +1,58 @@
+#!/bin/sh
+
+# configure.sh
+# ------------
+# used to configure FASTCLIP pipeline
+
+# 1. Checking for dependencies
+
+if $(type bowtie2 >/dev/null 2>&1); then
+	echo "bowtie2 installed"
+else 
+	echo >&2 "bowtie2 must be installed.  Aborting."; exit 1
+fi
+
+if $(type clipper >/dev/null 2>&1); then	
+	echo "CLIPper installed"
+else
+	echo >&2 "CLIPper must be installed.  Aborting."; exit 1
+fi
+
+if $(type bedtools >/dev/null 2>&1); then
+	echo "bedtools installed"
+else 
+	echo >&2 "bedtools must be installed.  Aborting."; exit 1
+fi
+
+if $(type python >/dev/null 2>&1); then
+	echo "python installed"
+else
+	echo >&2 "bedtools must be installed.  Aborting."; exit 1
+fi
+
+if $(python -c "import matplotlib" &> /dev/null); then
+	echo "matplotlib installed"
+else
+    echo >&2 "matplotlib must be installed in python. Aborting."; exit 1
+fi
+
+if $(python -c "import pandas" &> /dev/null); then
+	echo "pandas installed"
+else
+    echo >&2 "pandas must be installed in python. Aborting."; exit 1
+fi
+
+# 2. Downloading genome files
+
+echo "Downloading and unzipping hg19 and mm9 genome files"
+wget https://s3.amazonaws.com/changseq/rflynn/FASTCLIP/docs.tar.gz
+tar xvzf docs.tar.gz
+
+# 3. Downloading bowtie indexes
+wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/hg19.zip
+wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/mm9.zip
+mkdir docs/hg19
+unzip hg19.zip -d docs/hg19 && rm -f hg19.zip
+mkdir docs/mm9/mm9/
+unzip mm9.zip -d docs/mm9/mm9/ && rm -f mm9.zip
+
