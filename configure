@@ -51,7 +51,7 @@ tar xvzf docs.tar.gz -C docs && rm -f docs.tar.gz
 # 3. Downloading bowtie indexes
 wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/hg19.zip
 wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/mm9.zip
-mkdir docs/hg19
+mkdir docs/hg19/hg19
 unzip hg19.zip -d docs/hg19 && rm -f hg19.zip
 mkdir docs/mm9/mm9/
 unzip mm9.zip -d docs/mm9/mm9/ && rm -f mm9.zip
