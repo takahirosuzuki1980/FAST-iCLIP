@@ -4,7 +4,7 @@
 
 # <codecell>
 
-import os, cmath, math, sys, glob, subprocess, re
+import os, cmath, math, sys, glob, subprocess, re, argparse
 import numpy as np
 from matplotlib_venn import venn2
 import pandas as pd
@@ -324,9 +324,10 @@ def runSamtools(samfiles):
 			bamfile = samfile.replace('.sam','.bam')  
 			bamfile_sort = bamfile.replace('.bam','_sorted') 
 			bedFile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
+			
 			outBedFiles=outBedFiles+[bedFile]   
 
-			if glob.glob(bamfile) and glob.glob(bedFile):
+			if glob.glob(bedFile):
 				print "Samtools already done."
 				logOpen.write("Samtools already done.\n")
 				continue
@@ -338,6 +339,11 @@ def runSamtools(samfiles):
 			outfh = open(bedFile,'w')
 			proc3 = subprocess.Popen( [program2,'-i', bamfile_sort+'.bam'],stdout=outfh)
 			proc3.communicate()
+			
+			# remove sam and bamfile
+			proc4 = subprocess.Popen(["rm", "-f", samfile, bamfile])
+			proc4.communicate()
+			
 		return outBedFiles
 	except:
 		logOpen.write("Problem with samtools.\n")
@@ -1074,6 +1080,8 @@ print "Making Figure 1"
 logOpen.write("Making Figure 1\n")
 plt.subplot(2,3,1) 
 plot_ReadAccounting(outfilepath,sampleName)
+proc = subprocess.Popen(["rm", "-f", "*.fastq"])
+proc.communicate()
 
 # <codecell>
 
@@ -1565,6 +1573,26 @@ fig6.savefig(outfilepath+'Figure6.png',format='png',bbox_inches='tight',dpi=150,
 fig6.savefig(outfilepath+'Figure6.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
 # <codecell>
+
+# Removing things
+os.system("mkdir rawdata")
+os.system("mv PlotData_RepeatRNAHist* rawdata")
+os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads_cleaned_sorted* rawdata")
+os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads_centerCoord_cleaned_sorted* rawdata")
+os.system("mv *_allreads.mergedRT.bed rawdata")
+os.system("mv clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_cleaned_sorted_UTRs_scaled_cds200_abt0_averageGraph.txt rawdata")
+os.system("mv clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_cleaned_sorted_UTRs_scaled_cds200_abt0_controlmatrix.txt rawdata")
+os.system("mv *_withDupes_noBlacklist_noRepeat.bed rawdata")
+os.system("mv *_withDupes.bed rawdata")
+os.system("mv runLog rawdata")
+
+os.system("mkdir figures")
+os.system("mv Figure* figures")
+
+os.system("mkdir todelete")
+os.system("mv *.* todelete")
+os.system("mv PlotData* todelete")
+os.system("mv clipGenes_* todelete")
 
 logOpen.close()
 
