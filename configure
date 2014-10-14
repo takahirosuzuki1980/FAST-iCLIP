@@ -12,6 +12,12 @@ else
 	echo >&2 "bowtie2 must be installed.  Aborting."; exit 1
 fi
 
+if $(type fastx_quality_stats >/dev/null 2>&1); then
+	echo "FASTX-toolkit installed"
+else 
+	echo >&2 "fastx_toolkit must be installed.  Aborting."; exit 1
+fi
+
 if $(type clipper >/dev/null 2>&1); then	
 	echo "CLIPper installed"
 else
