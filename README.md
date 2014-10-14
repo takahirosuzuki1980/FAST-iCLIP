@@ -103,8 +103,8 @@ Debugging
     - The provided BedGraphToBigWig is built for Linux. 
   - This, and related scripts, may be downloaded for other platforms: http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.i386/
 4. If there is a problem parsing clusters from CLIPper, consider the version used.
-  - The older version of CLIPper results <name>_<clusterNum>_<readPerCluster>
-  - The newer version has name.val__<clusterNum>_<readPerCluster>
+  - The older version of CLIPper gives files with name `<name>_<clusterNum>_<readPerCluster>`
+  - The newer version gives files with name `name.val__<clusterNum>_<readPerCluster>`
 
 How the pipeline works
 ----------------------
