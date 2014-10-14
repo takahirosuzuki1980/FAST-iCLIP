@@ -34,7 +34,7 @@ parser.add_argument('-p', metavar='P', type=int, help="Percentage of bases that 
 
 # organism
 args = parser.parse_args()
-if not args.hg19 or args.mm9:
+if not (args.hg19 or args.mm9):
 	print "Error: must include --hg19 or --mm9. Exiting."
 	exit()
 org = 'human' if args.hg19 else 'mouse'
