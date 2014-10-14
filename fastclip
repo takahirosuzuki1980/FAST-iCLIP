@@ -863,7 +863,7 @@ bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
 centerCoordinates=makeClusterCenter(CLIPperOutBed) 
 getClusterIntensity(bedGraphCLIPin,centerCoordinates)
 
-# 
+
 def partitionReadsByUTR(infile,UTRmask,utrReads,notutrReads):
 	program = 'intersectBed'
 	outfh = open(utrReads,'w')
@@ -904,7 +904,7 @@ geneCounts_3p.to_csv(outfilepathToSave)
 outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
 geneCounts_cds.to_csv(outfilepathToSave) 
 
-# 
+
 def makeTab(bedGraph,genesFile,sizesFile):
 	program = os.getcwd() + '/bin/bedGraph2tab.pl'
 	program2 = 'wait'
@@ -1539,8 +1539,9 @@ fig6.savefig(outfilepath+'Figure6.pdf',format='pdf',bbox_inches='tight',dpi=150,
 
 
 # Removing things
+os.chdir(outfilepath)
 os.system("mkdir rawdata")
-os.system("mv PlotData_RepeatRNAHist* rawdata")
+os.system("mv PlotData_* rawdata")
 os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads_cleaned_sorted* rawdata")
 os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads_centerCoord_cleaned_sorted* rawdata")
 os.system("mv *_allreads.mergedRT.bed rawdata")
