@@ -166,8 +166,7 @@ How the pipeline works
   - For each gene type, we quantify the number of reads per gene.
   - For all but snoRNAs, this is computed using the bed files obtained above.
   - For snoRNAs, we intersect the initial pool of "low FDR" reads with custom annotation file. 
-  - *** This is derived from < ... >. ***
-  - We do this because *** ENSEMBL annotation is incomplete for snoRNAs. ***
+  - The custom annotation file is a summation of UCSC, Rfam, and ENSEMBL loci annotated as snoRNAs as no individual annotation entirely captured all known loci.
   - Collectively, this gives us reads per gene for each gene type.
   - All are based upon ENSEMBL annotation except for the snoRNAs.
 
