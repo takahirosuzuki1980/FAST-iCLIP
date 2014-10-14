@@ -46,6 +46,7 @@ fi
 
 echo "Downloading and unzipping hg19 and mm9 genome files"
 wget https://s3.amazonaws.com/changseq/rflynn/FASTCLIP/docs.tar.gz
+mkdir docs
 tar xvzf docs.tar.gz -C docs && rm -f docs.tar.gz
 
 # 3. Downloading bowtie indexes
@@ -56,3 +57,8 @@ unzip hg19.zip -d docs/hg19 && rm -f hg19.zip
 mkdir docs/mm9/mm9/
 unzip mm9.zip -d docs/mm9/mm9/ && rm -f mm9.zip
 
+# 4. Downloading example files
+wget https://s3.amazonaws.com/changseq/rflynn/FASTCLIP/rawdata.tar.gz 
+mkdir rawdata
+tar xvzf rawdata.tar.gz -C rawdata && rm -f rawdata.tar.gz
+mkdir results
