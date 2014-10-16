@@ -815,16 +815,18 @@ outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
 geneCounts_pc.to_csv(outfilepathToSave)
 
 bedFile_linc=outfilepath+"clipGenes_lincRNA_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
-geneCounts_linc=sortFilteredBed(bedFile_linc)
-outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_lincRNA'
-geneCounts_linc.to_csv(outfilepathToSave)
+if os.stat(bedFile_linc).st_size > 0:
+	geneCounts_linc=sortFilteredBed(bedFile_linc)
+	outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_lincRNA'
+	geneCounts_linc.to_csv(outfilepathToSave)
 
 CLIPPERlowFDRcenters=getBedCenterPoints(CLIPPERlowFDR)
 allLowFDRCentersBedGraph=makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
 bedFile_sno=getSnoRNAreads(CLIPPERlowFDRcenters,snoRNAindex)
-geneCounts_sno=countSnoRNAs(bedFile_sno) 
-outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_snoRNA'
-geneCounts_sno.to_csv(outfilepathToSave)
+if os.stat(bedFile_sno).st_size > 0:
+	geneCounts_sno=countSnoRNAs(bedFile_sno) 
+	outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_snoRNA'
+	geneCounts_sno.to_csv(outfilepathToSave)
 	
 remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
 countRemainingGeneTypes(remaining)
@@ -893,16 +895,21 @@ def extractUTRs(bedIn,fivePUTRBed,threePUTRBed,cdsBed):
 print "Intron and UTR analysis."
 logOpen.write("Intron and UTR analysis.\n")
 fivePreads,notFivePreads,CDSreads,notCDSreads,threePreads,notThreePreads=extractUTRs(filteredProteinCodingCenters,fivePUTRBed,threePUTRBed,cdsBed)
-geneCounts_5p=sortFilteredBed(fivePreads) 
-geneCounts_3p=sortFilteredBed(threePreads) 
-geneCounts_cds=sortFilteredBed(CDSreads) 
 
-outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_5pUTR'
-geneCounts_5p.to_csv(outfilepathToSave)
-outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_3pUTR'
-geneCounts_3p.to_csv(outfilepathToSave)
-outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
-geneCounts_cds.to_csv(outfilepathToSave) 
+if os.stat(fivePreads).st_size > 0:
+	geneCounts_5p=sortFilteredBed(fivePreads) 
+	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_5pUTR'
+	geneCounts_5p.to_csv(outfilepathToSave)
+
+if os.stat(threePreads).st_size > 0:
+	geneCounts_3p=sortFilteredBed(threePreads) 
+	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_3pUTR'
+	geneCounts_3p.to_csv(outfilepathToSave)
+
+if os.stat(CDSreads).st_size > 0:
+	geneCounts_cds=sortFilteredBed(CDSreads) 
+	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
+	geneCounts_cds.to_csv(outfilepathToSave) 
 
 
 def makeTab(bedGraph,genesFile,sizesFile):
@@ -910,10 +917,10 @@ def makeTab(bedGraph,genesFile,sizesFile):
 	program2 = 'wait'
 	outfile=bedGraph.replace('.bedgraph','.tab')
 	#if glob.glob(outfile): return outfile
-	proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
-	proc.communicate()
-	proc2 = subprocess.Popen(program2,shell=True)
-	proc2.communicate()
+	#proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
+	#proc.communicate()
+	#proc2 = subprocess.Popen(program2,shell=True)
+	#proc2.communicate()
 	return outfile
 
 def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
@@ -955,13 +962,14 @@ for bedFile in remaining:
 
 # lincRNA file processing
 bedFile_linc=outfilepath+"clipGenes_lincRNA_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
-bf=pd.DataFrame(pd.read_table(bedFile_linc,header=None))
-bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
-bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
-merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
-ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
-outfilepathToSave=bedFile_linc.replace(".bed",".geneStartStop")
-ncRNA_startStop.to_csv(outfilepathToSave)
+if os.stat(bedFile_linc).st_size > 0:
+	bf=pd.DataFrame(pd.read_table(bedFile_linc,header=None))
+	bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
+	bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
+	merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
+	ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
+	outfilepathToSave=bedFile_linc.replace(".bed",".geneStartStop")
+	ncRNA_startStop.to_csv(outfilepathToSave)
 
 # 
 def makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation):
@@ -1160,9 +1168,12 @@ def readUTRfile(path):
 	return geneCounts
 
 def plot_readsBymRNAregion(outfilepath,sampleName): 
-	pc_5pReads=readUTRfile(outfilepath+'/PlotData_ReadsPerGene_5pUTR')['Count'].sum()
-	pc_3pReads=readUTRfile(outfilepath+'/PlotData_ReadsPerGene_3pUTR')['Count'].sum()
-	pc_CDSReads=readUTRfile(outfilepath+'/PlotData_ReadsPerGene_CDS')['Count'].sum()
+	fivePfile = outfilepath+'/PlotData_ReadsPerGene_5pUTR'
+	threePfile = outfilepath+'/PlotData_ReadsPerGene_3pUTR'
+	CDSfile = outfilepath+'/PlotData_ReadsPerGene_CDS'
+	pc_5pReads = readUTRfile(fivePfile)['Count'].sum() if glob.glob(fivePfile) else 0
+	pc_3pReads = readUTRfile(threePfile)['Count'].sum() if glob.glob(threePfile) else 0
+	pc_CDSReads = readUTRfile(CDSfile)['Count'].sum() if glob.glob(CDSfile) else 0
 	non_intronic=pc_5pReads+pc_3pReads+pc_CDSReads
 	allProteinCoding=outfilepath +'clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed'
 	all_pc=pd.DataFrame(pd.read_table(allProteinCoding,header=None))
@@ -1246,7 +1257,7 @@ def plot_geneBodyPartition(outfilepath,sampleName):
 	treatMatrix=outfilepath+'clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_cleaned_sorted_UTRs_scaled_cds200_abt0_treatmatrix.txt'
 	hmap=pd.DataFrame(pd.read_table(treatMatrix,header=None,skiprows=1))
 	
-	# Ensure genes recoverd from this analysis are indepdently indentified using partitioning of CLIPper cluster data.
+	# Ensure genes recovered from this analysis are independently identified using partitioning of CLIPper cluster data.
 	hmap['ENSG_ID']=hmap.ix[:,0].apply(convertENBLids)
 	bound_pc = outfilepath+'clipGenes_proteinCoding'
 	pc_genes=pd.DataFrame(pd.read_table(bound_pc,header=None,))
@@ -1262,23 +1273,31 @@ def plot_geneBodyPartition(outfilepath,sampleName):
 	geneTypes=['5p','cds','3p'] 
 	depth=50
 	for i in range(0,3):	
+		if i == 0: name = "5pUTR"
+		elif i == 1: name = "CDS"
+		elif i == 2: name = "3pUTR"
+		fn = outfilepath+'/PlotData_ReadsPerGene_'+name
+		if not glob.glob(fn): continue
+		
+		plt.subplot2grid((2,3),(1,i),colspan=1)
 		utrMatrix=getUTRbindingProfile(geneTypes[i],hmap_m)
 		tosave=outfilepath+'PlotData_ExclusiveBound_%s'%geneTypes[i] 
 		np.savetxt(tosave,utrMatrix['ENSG_ID'],fmt="%s")
-		plt.subplot2grid((2,3),(1,i),colspan=1)
 		dataToPlot=utrMatrix[range(1,601)]
-		p=plt.pcolormesh(np.array(dataToPlot)[-depth:-1,:],cmap='Blues')
-		plt.title(geneTypes[i],fontsize=5)
-		plt.vlines(200,0,depth,linestyles='dashed')
-		plt.vlines(400,0,depth,linestyles='dashed')
-		plt.tick_params(axis='x',labelbottom='off') 
-		plt.tick_params(axis='y',labelleft='off') 
-		plt.ylim(0,depth)
-		plt.ylabel('Ranked genes (highest on bottom)',fontsize=5)
-		plt.xticks(visible=False)
-		plt.yticks(visible=False)
-		plt.title('%s specific genes: %s'%(geneTypes[i],np.unique(utrMatrix['ENSG_ID']).shape[0]),fontsize=5)
- 
+		
+		if not dataToPlot.empty:
+			p=plt.pcolormesh(np.array(dataToPlot)[-depth:-1,:],cmap='Blues')
+			plt.title(geneTypes[i],fontsize=5)
+			plt.vlines(200,0,depth,linestyles='dashed')
+			plt.vlines(400,0,depth,linestyles='dashed')
+			plt.tick_params(axis='x',labelbottom='off') 
+			plt.tick_params(axis='y',labelleft='off') 
+			plt.ylim(0,depth)
+			plt.ylabel('Ranked genes (highest on bottom)',fontsize=5)
+			plt.xticks(visible=False)
+			plt.yticks(visible=False)
+			plt.title('%s specific genes: %s'%(geneTypes[i],np.unique(utrMatrix['ENSG_ID']).shape[0]),fontsize=5)
+	 
 ensemblGeneAnnot=pd.DataFrame(pd.read_table(genesFile))
 ensemblGeneAnnot=ensemblGeneAnnot.set_index('name') # Make ENST the index
 plot_geneBodyPartition(outfilepath,sampleName)
@@ -1556,7 +1575,6 @@ os.system("mv Figure* figures")
 
 os.system("mkdir todelete")
 os.system("mv *.* todelete")
-os.system("mv PlotData* todelete")
 os.system("mv clipGenes_* todelete")
 
 logOpen.close()
