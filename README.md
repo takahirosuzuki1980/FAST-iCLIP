@@ -7,6 +7,17 @@ This package contains two main sets of tools: an executable called `fastclip` to
 
 The following README will focus mainly on `fastclip`. The pdf in the repository contains further instructions for using the iPython notebooks.
 
+**Table of Contents**
+
+- [Usage](#user-content-usage)
+	- [Required arguments](#user-content-required-arguments)
+	- [Optional arguments](#user-content-optional-arguments)
+- [Installation instructions](#user-content-installation-instructions)
+- [Dependencies](#user-content-dependencies)
+- [Input](#user-content-input)
+- [Output](#user-content-output)
+- [Debugging](#user-content-debugging)
+- [How the pipeline works](#user-content-how-the-pipeline-works)
 
 Usage
 -----
