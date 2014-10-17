@@ -51,7 +51,7 @@ Example: `fastclip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fa
 Installation instructions
 ------------
 
-1. Clone this repository by running `git clone git@github.com:bdo311/FASTCLIP.git`.
+1. Clone this repository by running `git clone git@github.com:ChangLab/FASTCLIP.git`.
 2. `cd` into the `FASTCLIP` folder.
 3. To install, run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example CLIP-seq data).
 4. You should see three new folders inside `FASTCLIP`: `docs`, `rawdata`, and `results`.
