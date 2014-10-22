@@ -1,9 +1,9 @@
 FAST-iCLIP
 ==========
 
-Fully Automated and Standardized i-CLIP (FAST-iCLIP) is a fully automated tool to process iCLIP data.
+Fully Automated and Standardized iCLIP (FAST-iCLIP) is a fully automated tool to process iCLIP data.
 
-This package contains two main sets of tools: an executable called `fastclip` to run iCLIP on human and mouse data, and several iPython notebooks to process iCLIP  data from viral genomes.
+This package contains two main sets of tools: an executable called `fastclip` to run iCLIP on human and mouse data, and several iPython notebooks to process iCLIP data from viral genomes.
 
 The following README will focus mainly on `fasticlip`. The pdf in the repository contains further instructions for using the iPython notebooks.
 
