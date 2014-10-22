@@ -1,12 +1,23 @@
 FASTCLIP
 ==========
 
-FASTCLIP is a fully automated tool to process CLIP-seq data.
+Fully Automated and Standardized CLIP (FASTCLIP) is a fully automated tool to process CLIP-seq data.
 
 This package contains two main sets of tools: an executable called `fastclip` to run CLIP-seq on human and mouse data, and several iPython notebooks to process CLIP-seq data from viral genomes.
 
 The following README will focus mainly on `fastclip`. The pdf in the repository contains further instructions for using the iPython notebooks.
 
+**Table of Contents**
+
+- [Usage](#user-content-usage)
+	- [Required arguments](#user-content-required-arguments)
+	- [Optional arguments](#user-content-optional-arguments)
+- [Installation instructions](#user-content-installation-instructions)
+- [Dependencies](#user-content-dependencies)
+- [Input](#user-content-input)
+- [Output](#user-content-output)
+- [Debugging](#user-content-debugging)
+- [How the pipeline works](#user-content-how-the-pipeline-works)
 
 Usage
 -----
@@ -40,9 +51,9 @@ Example: `fastclip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fa
 Installation instructions
 ------------
 
-1. Clone this repository by running `git clone git@github.com:bdo311/FASTCLIP.git`.
+1. Clone this repository by running `git clone git@github.com:ChangLab/FASTCLIP.git`.
 2. `cd` into the `FASTCLIP` folder.
-3. To install, run `./configure`. This will check for dependencies (below) and download necessary files.
+3. To install, run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example CLIP-seq data).
 4. You should see three new folders inside `FASTCLIP`: `docs`, `rawdata`, and `results`.
 5. Try running the following command: 
   `fastclip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run fairly quickly. Look inside `results/MMhur` for output files.
@@ -53,8 +64,8 @@ Dependencies
 1. Python 2.7: https://www.python.org/download/releases/2.7/
 2. iPython: http://ipython.org/install.html (optional)
 3. iPython notebook: http://ipython.org/notebook (optional)
-4. Matplotlib (plotting): http://matplotlib.org/
-5. Pandas (data): http://pandas.pydata.org/
+4. Matplotlib for Python (plotting): http://matplotlib.org/
+5. Pandas for Python (data): http://pandas.pydata.org/
 6. Bowtie2: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
 7. bedtools: http://bedtools.readthedocs.org/en/latest/
 8. CLIPper: https://github.com/YeoLab/clipper/wiki/CLIPper-Home
