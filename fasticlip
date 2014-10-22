@@ -19,7 +19,7 @@ global logOpen
 
 ### Parsing arguments ###
 
-parser = argparse.ArgumentParser(description="FASTCLIP: a pipeline to process CLIP data")
+parser = argparse.ArgumentParser(description="FAST-iCLIP: a pipeline to process iCLIP data", epilog="Example: fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results")
 parser.add_argument('-i', metavar=("INPUT1", "INPUT2"), nargs=2, help="2 input FASTQ files separated by a space", required=True)
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
