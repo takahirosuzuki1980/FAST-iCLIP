@@ -916,11 +916,11 @@ def makeTab(bedGraph,genesFile,sizesFile):
 	program = os.getcwd() + '/bin/bedGraph2tab.pl'
 	program2 = 'wait'
 	outfile=bedGraph.replace('.bedgraph','.tab')
-	#if glob.glob(outfile): return outfile
-	#proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
-	#proc.communicate()
-	#proc2 = subprocess.Popen(program2,shell=True)
-	#proc2.communicate()
+	if glob.glob(outfile): return outfile
+	proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
+	proc.communicate()
+	proc2 = subprocess.Popen(program2,shell=True)
+	proc2.communicate()
 	return outfile
 
 def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
