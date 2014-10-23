@@ -51,7 +51,9 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
 Installation instructions
 ------------
 
-1. Clone this repository by running `git clone git@github.com:ChangLab/FAST-iCLIP.git` if you use ssh authentication or `git clone https://github.com/ChangLab/FAST-iCLIP.git` otherwise.
+1. Clone this repository by running one of the following:
+	- `git clone git@github.com:ChangLab/FAST-iCLIP.git` if you use ssh authentication
+	- `git clone https://github.com/ChangLab/FAST-iCLIP.git` otherwise
 2. `cd` into the `FAST-iCLIP` folder.
 3. To install, run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
 4. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
