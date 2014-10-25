@@ -1,11 +1,11 @@
-FASTCLIP
+FAST-iCLIP
 ==========
 
-Fully Automated and Standardized CLIP (FASTCLIP) is a fully automated tool to process CLIP-seq data.
+Fully Automated and Standardized iCLIP (FAST-iCLIP) is a fully automated tool to process iCLIP data.
 
-This package contains two main sets of tools: an executable called `fastclip` to run CLIP-seq on human and mouse data, and several iPython notebooks to process CLIP-seq data from viral genomes.
+This package contains two main sets of tools: an executable called `fasticlip` to run iCLIP on human and mouse data, and several iPython notebooks to process iCLIP data from viral genomes.
 
-The following README will focus mainly on `fastclip`. The pdf in the repository contains further instructions for using the iPython notebooks.
+The following README will focus mainly on `fasticlip`. The pdf in the repository contains further instructions for using the iPython notebooks.
 
 **Table of Contents**
 
@@ -22,9 +22,9 @@ The following README will focus mainly on `fastclip`. The pdf in the repository 
 Usage
 -----
 
-`fastclip [-h] -i INPUT1 INPUT2 [--hg19 | --mm9] -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-t THRESHOLD] [-q Q] [-p P]`
+`fasticlip [-h] -i INPUT1 INPUT2 [--hg19 | --mm9] -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-t THRESHOLD] [-q Q] [-p P]`
 
-Example: `fastclip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`
+Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`
 
 ### Required arguments
 
@@ -51,12 +51,14 @@ Example: `fastclip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fa
 Installation instructions
 ------------
 
-1. Clone this repository by running `git clone git@github.com:ChangLab/FASTCLIP.git`.
-2. `cd` into the `FASTCLIP` folder.
-3. To install, run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example CLIP-seq data).
-4. You should see three new folders inside `FASTCLIP`: `docs`, `rawdata`, and `results`.
+1. Clone this repository by running one of the following:
+	- `git clone git@github.com:ChangLab/FAST-iCLIP.git` if you use ssh authentication
+	- `git clone https://github.com/ChangLab/FAST-iCLIP.git` otherwise
+2. `cd` into the `FAST-iCLIP` folder.
+3. To install, run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
+4. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 5. Try running the following command: 
-  `fastclip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run fairly quickly. Look inside `results/MMhur` for output files.
+  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run fairly quickly. Look inside `results/MMhur` for output files.
 
 Dependencies
 ------------
@@ -74,7 +76,7 @@ Dependencies
 Input
 -----
 
-There must be two replicates of your CLIP-seq data in FASTQ format. These FASTQ files should NOT be trimmed or processed because trimming and processing will occur as part of the pipeline.
+There must be two replicates of your iCLIP data in FASTQ format. These FASTQ files should NOT be trimmed or processed because trimming and processing will occur as part of the pipeline.
 
 Output
 ------
@@ -122,7 +124,7 @@ Debugging
 How the pipeline works
 ----------------------
 
-1. Prepare 2 FASTQ files corresponding to the two replicates for the CLIP experiment.
+1. Prepare 2 FASTQ files corresponding to the two replicates for the iCLIP experiment.
 
 2. Trim adapter from the 3' end from the reads.
   - RT primer is cleaved, leaving adapters. 
