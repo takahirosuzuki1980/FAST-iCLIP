@@ -1473,6 +1473,11 @@ snoTypes['Fraction']=snoTypes['Reads']/snoTypes['Reads'].sum(axis=1)
 outfilepathToSave=outfilepath+'/PlotData_readsPerSnoRNAType'
 snoTypes.to_csv(outfilepathToSave)
 
+snoTypesAndGenes=pd.DataFrame(bf_sno.groupby(['Type','name_snoRNA']).size())
+snoTypesAndGenes.columns=['Count_per_gene']
+outfilepathToSave=outfilepath+'/PlotData_geneStatsPerSnoRNAType'
+snoTypesAndGenes.to_csv(outfilepathToSave)
+	  
 fig5=plt.figure(5)
 ax=plt.subplot(2,2,1)
 pie_wedges=ax.pie(snoTypes['Fraction'],labels=snoTypes.index,labeldistance=1.1,autopct='%1.1f%%')
