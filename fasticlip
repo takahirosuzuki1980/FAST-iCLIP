@@ -1317,7 +1317,7 @@ def plot_repeatRNA(outfilepath,sampleName):
 	repeat_genome_bases=repeat_genome[1]
 	
 	repFiles=glob.glob(outfilepath + '/PlotData_RepeatRNAreads_*')
-	repFiles=[repFile for repFile in repFiles if 'rDNA' not in repFile]
+	#repFiles=[repFile for repFile in repFiles if 'rDNA' not in repFile]
 	
 	plotDim=math.ceil(math.sqrt(len(repFiles)))
 	i=0
