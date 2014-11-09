@@ -26,7 +26,7 @@ group.add_argument('--hg19', action='store_true', help="required if your CLIP is
 group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
 parser.add_argument('-n', metavar='NAME', help="Name of output directory", required=True)
 parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output directory will be made", required=True)
-parser.add_argument('-f', metavar='N', type=int, help="Number of bases to trim from 5' end of each read. Default is 13.", default=13)
+parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 14.", default=14)
 parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the end of each read. Default is AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.", default='AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG')
 parser.add_argument('-t', metavar='THRESHOLD', type=int, help="Stringency of RT stop filtering, where higher numbers indicate greater stringency. Default is 3.", default=3)
 parser.add_argument('-q', metavar='Q', type=int, help="Minimum quality score to keep during filtering. Default is 25.", default=25)
