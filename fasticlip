@@ -31,13 +31,16 @@ parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the e
 parser.add_argument('-t', metavar='THRESHOLD', type=int, help="Stringency of RT stop filtering, where higher numbers indicate greater stringency. Default is 3.", default=3)
 parser.add_argument('-q', metavar='Q', type=int, help="Minimum quality score to keep during filtering. Default is 25.", default=25)
 parser.add_argument('-p', metavar='P', type=int, help="Percentage of bases that must have quality > q during filtering. Default is 80.", default=80)
+parser.add_argument('-l', metavar='L', type=int, help="Minimum length of read. Default is 20.", default=20)
+
 
 # organism
 args = parser.parse_args()
 if not (args.hg19 or args.mm9):
 	print "Error: must include --hg19 or --mm9. Exiting."
 	exit()
-org = 'human' if args.hg19 else 'mouse'
+if args.hg19: org = 'human' 
+else: org = 'mouse'
 
 # input files
 unzippedreads = args.i
@@ -62,17 +65,18 @@ logOpen=open(logFile, 'w')
 ### Parameters ###
 iCLIP3pBarcode=args.a # Barcode sequence to trim from reads.
 q=args.q # Minimum quality score to keep during filtering.
-p=args.p # Percentage of bases that must have quality > q during filtering.    
-iCLIP5pBasesToTrim=args.f # Number of reads to trim from 5' end of clip reads.
+p=args.p # Percentage of bases that must have quality > q during filtering.
+l=args.l +  args.f - 1 # Minimum length of read + 5' adapter
+iCLIP5pBasesToTrim=args.f # Number of reads to trim from 5' end of clip reads + 1 (this number represents the first base kept)
 k='1' # k=N distinct, valid alignments for each read in bt2 mapping.
 threshold=args.t # Sum of RT stops (for both replicates) required to keep it. 
 expand=15 # Bases to expand around RT position after RT stops are merged.
 CLIPPERoutNameDelim='_' # Delimiter that for splitting gene name in the CLIPper windows file.
 
 if org == 'human':
-	repeat_index=os.getcwd() + '/docs/hg19/repeat/rep' # bt2 index for repeat RNA.
-	repeatGenomeBuild=os.getcwd()+'/docs/hg19/repeat/repeatRNA.fa' # Sequence of repeat index.
-	repeatAnnotation=os.getcwd()+'/docs/hg19/repeat/Hs_repeatIndex_positions.txt' # Repeat annotation file.
+	repeat_index=os.getcwd() + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=os.getcwd()+'/docs/hg19/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=os.getcwd()+'/docs/hg19/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
 	start18s=3657
 	end18s=5527
 	start5s=6623
@@ -99,9 +103,9 @@ if org == 'human':
 	snoRNAindex=os.getcwd()+'/docs/hg19/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
 	geneStartStopRepo=os.getcwd()+'/docs/hg19/all_genes.txt'
 elif org == 'mouse':
-	repeat_index=os.getcwd() + '/docs/mm9/repeat/rep' # bt2 index for repeat RNA.
-	repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm_repeatRNA.fa' # Sequence of repeat index.
-	repeatAnnotation=os.getcwd()+'/docs/mm9/repeat/Mm_repeatIndex_positions.txt' # Repeat annotation file.
+	repeat_index=os.getcwd() + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=os.getcwd()+'/docs/mm9/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
 	start18s=4007
 	end18s=5876
 	start5s=6877
@@ -160,7 +164,8 @@ def trimReads3p(unzippedreads,adapter3p):
 				logOpen.write("3p trimming already done.\n")
 				continue
 				
-			process=subprocess.Popen(['fastx_clipper',trimparam,'-n','-l33','-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
+			lengthparam = '-l' + str(l)	
+			process=subprocess.Popen(['fastx_clipper',trimparam,'-n',lengthparam,'-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
 			stdout, stderr = process.communicate()
 			logOpen.write("Trim 3p end of reads.\n")
 			logOpen.write("Stdout: %s.\n"%stdout)
@@ -1282,7 +1287,7 @@ def plot_geneBodyPartition(outfilepath,sampleName):
 		plt.subplot2grid((2,3),(1,i),colspan=1)
 		utrMatrix=getUTRbindingProfile(geneTypes[i],hmap_m)
 		tosave=outfilepath+'PlotData_ExclusiveBound_%s'%geneTypes[i] 
-		np.savetxt(tosave,utrMatrix['ENSG_ID'],fmt="%s")
+		np.savetxt(tosave,np.array(list(set(utrMatrix['ENSG_ID']))),fmt="%s")
 		dataToPlot=utrMatrix[range(1,601)]
 		
 		if not dataToPlot.empty:
