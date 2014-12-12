@@ -1,5 +1,5 @@
-#!/usr/bin/python
-
+#!/usr/local/bin/python
+# ajdk
 import os, cmath, math, sys, glob, subprocess, re, argparse, shutil, datetime
 import numpy as np
 from matplotlib_venn import venn2
@@ -608,7 +608,7 @@ def modCLIPPERout(CLIPPERin,CLIPPERout):
 				# *** Old CLIPper: Ensembl genes are parsed with <name>_<cluster>_<count>. ***
 				chrom,start,end,name,stats,strand,start_2,end_2 = line.strip().split('\t')
 				readPerCluster=name.strip().split('_')[2]
-				geneName=name.strip().split('_')[0]
+				geneName=name.strip().split('_')[0].split('.')[0]
 				f.write('\t'.join((chrom,start,end,name,stats,strand))+'\n')
 				g.write((readPerCluster+'\n'))
 				h.write((geneName+'\n'))
@@ -636,7 +636,6 @@ CLIPPERlowFDR=clipperStats[0] # Low FDR reads returned filtered through CLIPper 
 CLIPpeReadsPerCluster=clipperStats[1] # Number of reads per CLIPper cluster
 CLIPpeGeneList=clipperStats[2] # Gene names returned from the CLIPper file
 CLIPperOutBed=clipperStats[3] # CLIPper windows as a bed file
-
 
 def getBedCenterPoints(inBed):
 	# Usage: Obtain center coordinates of bedFile.
