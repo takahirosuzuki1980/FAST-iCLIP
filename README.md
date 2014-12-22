@@ -72,6 +72,7 @@ Dependencies
 7. bedtools: http://bedtools.readthedocs.org/en/latest/
 8. CLIPper: https://github.com/YeoLab/clipper/wiki/CLIPper-Home
 9. FASTX-Tookit: http://hannonlab.cshl.edu/fastx_toolkit/
+10. Matplotlib-venn for Python: https://pypi.python.org/pypi/matplotlib-venn
 
 Input
 -----
