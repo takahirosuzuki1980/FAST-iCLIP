@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 # FAST-iCLIP
 
 import os, cmath, math, sys, glob, subprocess, re, argparse, shutil, datetime
