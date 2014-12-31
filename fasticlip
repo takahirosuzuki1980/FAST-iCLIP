@@ -1210,7 +1210,7 @@ plot_BoundGeneTypes(outfilepath,sampleName)
 fig1.tight_layout()
 
 fig1.savefig(outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-fig1.savefig(outfilepath+'Figure1.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+#fig1.savefig(outfilepath+'Figure1.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
 
 def plot_mRNAgeneBodyDist(outfilepath,sampleName):
