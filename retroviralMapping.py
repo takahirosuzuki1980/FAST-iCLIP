@@ -81,22 +81,22 @@ def runBowtie(fastqFiles):
         print "Input file:"
         print infastq 
         print 'Genome index:'
-        print index
+        print retroIndex
         print "Output file (mapped):"
         print outfile
-        proc = subprocess.Popen([program,'-x',index,'-k',k,'-U',infastq,'-S',outfile],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        proc = subprocess.Popen([program,'-x',retroIndex,'-k',k,'-U',infastq,'-S',outfile],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out, err = proc.communicate()
         result = out.decode()
         error = err.decode()
         print "Result : ",result 
         print "Error : ",error
         mappedReads = mappedReads + [outfile]
-        unMappedReads = unMappedReads + [unmapped]
-    return (mappedReads,unMappedReads)
+    return mappedReads
 
 # Run Bowtie
 readsForRetroviralmapping=glob.glob(outfilepath+"/rawdata/*_notMappedTorepeat.fastq")
-print readsForRetroviralmapping
+#mappedReads = runBowtie(readsForRetroviralmapping)
+#print readsForRetroviralmapping
 
 
 def runSamtools(samfiles):
@@ -130,9 +130,9 @@ def runSamtools(samfiles):
     return outBedFiles
 
 # Run Samtools
+mappedReads=glob.glob(outfilepath+"/rawdata/*mappedToRetroviral.sam")
 print "Process mapped data"  
-mappedReads=glob.glob(outfilepath+"/todelete/*mappedToRetroviral.sam")
-mappedBedFiles=runSamtools(mappedReads)
+#mappedBedFiles=runSamtools(mappedReads)
 
 def makeRepeatAnnotation():    
     # Repeat index sequence 
@@ -159,7 +159,7 @@ def readBed(path):
     bedFile['Start']=bedFile['Start'].astype(int)
     return bedFile
 
-mappedBed=glob.glob(outfilepath+"/todelete/*mappedToRetroviral_withDupes.bed")
+mappedBed=glob.glob(outfilepath+"/rawdata/*mappedToRetroviral_withDupes.bed")
 bedR1=readBed(mappedBed[0])
 bedR2=readBed(mappedBed[1])
 
@@ -178,7 +178,7 @@ recordHits.sort(['sum'],inplace=True,ascending=False)
 
 grZero=recordHits[recordHits['sum']>0]
 pathToSave=outfilepath + '/rawdata/retroviral_numReads.txt'
-record.to_csv(pathToSave)
+recordHits.to_csv(pathToSave,sep='\t')
 
 # - Evaluate consistency between replicates - 
 def plotRepGraph():
@@ -207,24 +207,31 @@ pp.close()
 ofile = open(outfilepath + '/rawdata/retroviral_RNA_bins.txt', 'w')
 writer = csv.writer(ofile, 'textdialect')
 
-for repName in grZero['Name']:
+for repName in grZero.index:
 	# Hits
 	hits_r1=bedR1[(bedR1['Start']<int(repeatAnnotDF.loc[repName,'IndexEnd'])) & (bedR1['Start']>int(repeatAnnotDF.loc[repName,'IndexStart']))]
 	hits_r2=bedR2[(bedR2['Start']<int(repeatAnnotDF.loc[repName,'IndexEnd'])) & (bedR2['Start']>int(repeatAnnotDF.loc[repName,'IndexStart']))]
-
+	binSize=1
+	bins=range(repeatAnnotDF.loc[repName,'IndexStart'],repeatAnnotDF.loc[repName,'IndexEnd']+2,binSize) # Make sure bins are end coordinate inclusive
+	histr1,bins=np.histogram(hits_r1,bins=bins)
+	histr2,bins=np.histogram(hits_r2,bins=bins)
+	
 	# Histogram
 	numBins=100
-	a=map(lambda x: float(x)*len(hits_r1)/numBins, range(numBins)) # convert my desired scale to the current scale		
-	hits_r1_bin = np.interp(a, range(len(hits_r1)), hits_r1)
-	a=map(lambda x: float(x)*len(hits_r2)/numBins, range(numBins)) # convert my desired scale to the current scale		
-	hits_r2_bin = np.interp(a, range(len(hits_r2)), hits_r2)
+	a=map(lambda x: float(x)*len(histr1)/numBins, range(numBins)) # convert my desired scale to the current scale		
+	hits_r1_bin = np.interp(a, range(len(histr1)), histr1)
+	a=map(lambda x: float(x)*len(histr2)/numBins, range(numBins)) # convert my desired scale to the current scale		
+	hits_r2_bin = np.interp(a, range(len(histr2)), histr2)
 
 	hits_bin = list(hits_r1_bin + hits_r2_bin)
+	
 	outputRow = [repName]
 	outputRow.extend(hits_bin)
 	writer.writerow(outputRow)
 	
 ofile.close()
+
+os.system(outfilepath + '/rawdata/*.sam')
 
 
 
