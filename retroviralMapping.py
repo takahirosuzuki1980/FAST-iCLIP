@@ -77,7 +77,6 @@ def runBowtie(fastqFiles):
         print infastq
 
         outfile = modifyName(infastq,"mappedToRetroviral.sam")
-        unmapped = modifyName(infastq,"notMappedToRetroviral.fastq")
         
         print "Input file:"
         print infastq 
@@ -85,9 +84,7 @@ def runBowtie(fastqFiles):
         print index
         print "Output file (mapped):"
         print outfile
-        print "Output file (unmapped)"
-        print unmapped
-        proc = subprocess.Popen([program,'-x',index,'-k',k,'-U',infastq,'--un',unmapped,'-S',outfile],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        proc = subprocess.Popen([program,'-x',index,'-k',k,'-U',infastq,'-S',outfile],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out, err = proc.communicate()
         result = out.decode()
         error = err.decode()
@@ -98,7 +95,7 @@ def runBowtie(fastqFiles):
     return (mappedReads,unMappedReads)
 
 # Run Bowtie
-readsForRetroviralmapping=glob.glob(outfilepath+"/todelete/*_notMappedTorepeat.fastq")
+readsForRetroviralmapping=glob.glob(outfilepath+"/rawdata/*_notMappedTorepeat.fastq")
 print readsForRetroviralmapping
 
 

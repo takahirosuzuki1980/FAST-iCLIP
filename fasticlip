@@ -1581,6 +1581,7 @@ os.system("mv clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRN
 os.system("mv *.mergedRT_CLIP_clusters.bed rawdata")
 os.system("mv *_withDupes_noBlacklist_noRepeat.bed rawdata")
 os.system("mv *_withDupes.bed rawdata")
+os.system("mv *_notMappedTorepeat.fastq rawdata")
 os.system("mv *threshold*mergedRT_CLIP_clusters_cleaned.bed rawdata")
 os.system("mv runLog rawdata")
 
