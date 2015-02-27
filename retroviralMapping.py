@@ -95,7 +95,7 @@ def runBowtie(fastqFiles):
 
 # Run Bowtie
 readsForRetroviralmapping=glob.glob(outfilepath+"/rawdata/*_notMappedTorepeat.fastq")
-#mappedReads = runBowtie(readsForRetroviralmapping)
+mappedReads = runBowtie(readsForRetroviralmapping)
 #print readsForRetroviralmapping
 
 
@@ -132,7 +132,7 @@ def runSamtools(samfiles):
 # Run Samtools
 mappedReads=glob.glob(outfilepath+"/rawdata/*mappedToRetroviral.sam")
 print "Process mapped data"  
-#mappedBedFiles=runSamtools(mappedReads)
+mappedBedFiles=runSamtools(mappedReads)
 
 def makeRepeatAnnotation():    
     # Repeat index sequence 

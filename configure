@@ -51,7 +51,7 @@ fi
 # 2. Downloading genome files
 
 echo "Downloading and unzipping hg19 and mm9 genome files"
-wget https://s3.amazonaws.com/changseq/rflynn/FASTCLIP/docs.tar.gz
+wget https://s3.amazonaws.com/changlabguest/FAST-iCLIP/docs.tar.gz
 mkdir docs
 tar xvzf docs.tar.gz -C docs && rm -f docs.tar.gz
 
