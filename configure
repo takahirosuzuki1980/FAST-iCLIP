@@ -64,7 +64,7 @@ mkdir docs/mm9/mm9/
 unzip mm9.zip -d docs/mm9/mm9/ && rm -f mm9.zip
 
 # 4. Downloading example files
-wget https://s3.amazonaws.com/changseq/rflynn/FASTCLIP/rawdata.tar.gz 
+wget https://s3.amazonaws.com/changlabguest/FAST-iCLIP/rawdata.tar.gz
 mkdir rawdata
 tar xvzf rawdata.tar.gz -C rawdata && rm -f rawdata.tar.gz
 mkdir results
