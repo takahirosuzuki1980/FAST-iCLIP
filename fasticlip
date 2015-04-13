@@ -591,19 +591,19 @@ def runCLIPPER(RTclusterfile,genome,genomeFile):
 	outfh.close()
 	
 	# added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
-	CLIPPERout=CLIPPERout_dup.replace('_CLIPPERclusters_dupl','_CLIP_clusters') 
+	CLIPPERout=CLIPPERout_dup.replace('_CLIP_clusters_dupl','_CLIP_clusters') 
 	ifile = open(CLIPPERout_dup,'r')
 	reader = csv.reader(ifile, 'textdialect')
 	ofile = open(CLIPPERout,'w')
 	writer = csv.writer(ofile, 'textdialect')
-	currRow = ['chr1',0,0]
+	currRow = ['chr1',0,0,0,0,'+']
 	for row in reader:
 		currStart = int(currRow[1])
 		currEnd = int(currRow[2])
 		newStart = int(row[1])
 		newEnd = int(row[2])
 		if currStart==newStart and currEnd==newEnd: continue #duplicates
-		if math.fabs(newStart-currEnd) <= 15: #overlap
+		if math.fabs(newStart-currEnd) <= 15 and currRow[5]==row[5]: #overlap and same strand
 			if int(currRow[1]) != 0: #not the first one
 				currRow[2]=newEnd #merge the two adjacent clusters
 		else: #not overlap
