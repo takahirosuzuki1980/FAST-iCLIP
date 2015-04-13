@@ -58,7 +58,7 @@ Installation instructions
 3. To install, run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
 4. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 5. Try running the following command: 
-  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run fairly quickly. Look inside `results/MMhur` for output files.
+  `./fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run fairly quickly. Look inside `results/MMhur` for output files.
 
 Dependencies
 ------------
