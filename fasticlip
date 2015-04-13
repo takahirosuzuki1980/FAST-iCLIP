@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # FAST-iCLIP
 
-import os, cmath, math, sys, glob, subprocess, re, argparse, shutil, datetime
+import os, cmath, math, sys, glob, subprocess, re, argparse, shutil, datetime, csv
 import numpy as np
 from matplotlib_venn import venn2
 import pandas as pd
@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from optparse import OptionParser
 mpl.rcParams['savefig.dpi'] = 2 * mpl.rcParams['savefig.dpi']
 mpl.rcParams['path.simplify'] = True
+csv.register_dialect("textdialect",delimiter='\t')
 
 global sampleName
 global outfilepath
@@ -584,10 +585,35 @@ def runCLIPPER(RTclusterfile,genome,genomeFile):
 	proc5=subprocess.Popen([program3,'-i',bamfile_sorted],stdout=outfh)
 	proc5.communicate()
 	
-	CLIPPERout=CLIPPERin.replace('_CLIPPERin.bed','_CLIP_clusters') 
-	proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout],)
+	CLIPPERout_dup=CLIPPERin.replace('_CLIPPERin.bed','_CLIP_clusters_dupl') 
+	proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout_dupl],)
 	proc6.communicate()
 	outfh.close()
+	
+	# added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
+	CLIPPERout=CLIPPERout_dup.replace('_CLIPPERclusters_dupl','_CLIP_clusters') 
+	ifile = open(CLIPPERout_dup,'r')
+	reader = csv.reader(ifile, 'textdialect')
+	ofile = open(CLIPPERout,'w')
+	writer = csv.writer(ofile, 'textdialect')
+	currRow = ['chr1',0,0]
+	for row in reader:
+		currStart = int(currRow[1])
+		currEnd = int(currRow[2])
+		newStart = int(row[1])
+		newEnd = int(row[2])
+		if currStart==newStart and currEnd==newEnd: continue #duplicates
+		if math.fabs(newStart-currEnd) <= 15: #overlap
+			if int(currRow[1]) != 0: #not the first one
+				currRow[2]=newEnd #merge the two adjacent clusters
+		else: #not overlap
+			if int(currRow[1]) != 0:
+				writer.writerow(currRow)
+			currRow = row #cycle continues
+	writer.writerow(currRow) #fencepost
+	
+	ifile.close()
+	ofile.close()	
 	
 	return (CLIPPERin,CLIPPERout)
 
