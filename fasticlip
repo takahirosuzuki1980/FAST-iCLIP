@@ -586,7 +586,7 @@ def runCLIPPER(RTclusterfile,genome,genomeFile):
 	proc5.communicate()
 	
 	CLIPPERout_dup=CLIPPERin.replace('_CLIPPERin.bed','_CLIP_clusters_dupl') 
-	proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout_dupl],)
+	proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout_dup],)
 	proc6.communicate()
 	outfh.close()
 	
