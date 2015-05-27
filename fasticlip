@@ -1368,6 +1368,13 @@ def plot_repeatRNA(outfilepath,sampleName):
 			# Normalize
 			histPlot=np.array(hist,dtype=float)
 			histPlot=np.array(histPlot/float(len(RTpositions)),dtype=float)
+				
+			# Make sure same length
+			sequence=repeat_genome_bases[start:end+1]
+			hist = hist[:len(sequence)]
+			histPlot = hist[:len(sequence)]
+			center = center[:len(sequence)]
+			
 			# Subplot
 			plt.subplot(plotDim,plotDim,i+1)
 			plt.bar(center,histPlot,align='center',width=width,color='blue',alpha=0.45)
@@ -1377,7 +1384,6 @@ def plot_repeatRNA(outfilepath,sampleName):
 			plt.xlim(start,end)  
 			# Record data
 			storageDF=pd.DataFrame()
-			sequence=repeat_genome_bases[start:end+1]
 			storageDF['Sequence']=pd.Series(list(sequence))
 			readsPerBase=np.array(list(hist))
 			readsPerBaseNorm=np.array(list(histPlot))
