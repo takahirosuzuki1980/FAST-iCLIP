@@ -1257,9 +1257,6 @@ def plot_mRNAgeneBodyDist(outfilepath,sampleName):
 	
 print "Making Figure 2"
 logOpen.write("Making Figure 2\n")
-plt.subplot2grid((2,3),(0,0),colspan=3)
-plot_mRNAgeneBodyDist(outfilepath,sampleName)
-
 
 def convertENBLids(enst_name):
 	ensg_name=ensemblGeneAnnot.loc[enst_name,'name2']
@@ -1272,7 +1269,10 @@ def getUTRbindingProfile(utr,hmap_m):
 	elif utr=='3p':
 		ix=(hmap_m[range(1,401)].sum(axis=1)==0)&(hmap_m[range(401,601)].sum(axis=1)>0)
 		screen=readUTRfile(outfilepath+'/PlotData_ReadsPerGene_3pUTR')
-	else:
+	elif utr=='5p3p':
+		ix=(hmap_m[range(201,401)].sum(axis=1)==0)&(hmap_m[range(401,601)].sum(axis=1)>0)&(hmap_m[range(1,201)].sum(axis=1)>0)
+		screen=readUTRfile(outfilepath+'/PlotData_ReadsPerGene_5p3pUTR')
+	else:  # utr=='CDS'
 		ix=(hmap_m[range(1,201)].sum(axis=1)==0)&(hmap_m[range(401,601)].sum(axis=1)==0)&(hmap_m[range(201,401)].sum(axis=1)>0)
 		screen=readUTRfile(outfilepath+'/PlotData_ReadsPerGene_CDS')
 		
@@ -1301,16 +1301,17 @@ def plot_geneBodyPartition(outfilepath,sampleName):
 	np.savetxt(tosave,np.array(intronicBoundGenes),fmt="%s")
 	
 	# UTR specific genes.
-	geneTypes=['5p','cds','3p'] 
+	geneTypes=['5p','cds','3p','5p3p'] 
 	depth=50
-	for i in range(0,3):	
+	for i in range(0,4):	
 		if i == 0: name = "5pUTR"
 		elif i == 1: name = "CDS"
 		elif i == 2: name = "3pUTR"
+		else: name = '5p3pUTR'
 		fn = outfilepath+'/PlotData_ReadsPerGene_'+name
 		if not glob.glob(fn): continue
 		
-		plt.subplot2grid((2,3),(1,i),colspan=1)
+		plt.subplot2grid((2,4),(1,i),colspan=1)
 		utrMatrix=getUTRbindingProfile(geneTypes[i],hmap_m)
 		tosave=outfilepath+'PlotData_ExclusiveBound_%s'%geneTypes[i] 
 		np.savetxt(tosave,np.array(list(set(utrMatrix['ENSG_ID']))),fmt="%s")
@@ -1335,7 +1336,7 @@ plot_geneBodyPartition(outfilepath,sampleName)
 
 
 fig2=plt.figure(2)
-plt.subplot2grid((2,3),(0,0),colspan=3)
+plt.subplot2grid((2,4),(0,0),colspan=4)
 plot_mRNAgeneBodyDist(outfilepath,sampleName)
 plot_geneBodyPartition(outfilepath,sampleName)
 fig2.tight_layout()
