@@ -127,19 +127,18 @@ How the pipeline works
 
 1. Prepare 2 FASTQ or FASTQ.gz files corresponding to the two replicates for the iCLIP experiment.
 
-2. Duplicate removal (see 2a), quality filter, and trim adapter from the 3' end from the reads
+2. Duplicate removal, quality filter, and trim adapter from the 3' end from the reads
+  - Duplicate removal:
+	  - This step takes advantage of the fact that 5' end of each read has a random barcode.
+	  - Each initial starting molecule that was RT'd will have a unique barcode.
+	  - Therefore, PCR duplicates are removed by collapsing molecules with identical 5' barcode sequences.
   - RT primer is cleaved, leaving adapters. 
   - Remove adapter region from the 3' end of the read.
   - The adapter is an optional input parameter.
-  - Default is to remove sequnces less than N=33 reads. 
+  - Default is to remove sequences less than N=33 nucleotides. 
   - Q33 specifies the quality score encoding format.
 
-2a. Remove duplicates.
-  - This step takes advantage of the fact that 5' end of each read has a random barcode.
-  - Each initial starting molecule that was RT'd will have a unique barcode.
-  - Therefore, PCR duplicates are removed by collapsing molecules with identical 5' barcode sequences.
-
-3. After duplicate removal, remove the 5' barcode sequence.
+3. After duplicate removal, remove the 5' barcode sequence. Default is 13 nt removed.
 
 4. We then map to a repeat index, then to a tRNA index, then to a genome index.
   - We only keep reads that are unique and perfectly aligned.
