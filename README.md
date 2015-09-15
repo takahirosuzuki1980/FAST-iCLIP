@@ -31,7 +31,7 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   flag | description
   ------------------|------------------------------------------------
   -h, --help   |      show this help message and exit
-  -i INPUT1 INPUT2  | 2 input FASTQ files separated by a space
+  -i INPUT1 INPUT2  | 2 input FASTQ (or fastq.gz) files separated by a space
   --hg19        |    required if your CLIP is from human
   --mm9          |   required if your CLIP is from mouse
   -n NAME         |  Name of output directory
@@ -77,7 +77,7 @@ Dependencies
 Input
 -----
 
-There must be two replicates of your iCLIP data in FASTQ format. These FASTQ files should NOT be trimmed or processed because trimming and processing will occur as part of the pipeline.
+There must be two replicates of your iCLIP data in FASTQ format. Compressed FASTQs (fastq.gz) are acceptable as well. These FASTQ files should NOT be trimmed or processed because trimming and processing will occur as part of the pipeline.
 
 Output
 ------
@@ -125,49 +125,42 @@ Debugging
 How the pipeline works
 ----------------------
 
-1. Prepare 2 FASTQ files corresponding to the two replicates for the iCLIP experiment.
+1. Prepare 2 FASTQ or FASTQ.gz files corresponding to the two replicates for the iCLIP experiment.
 
-2. Trim adapter from the 3' end from the reads.
+2. Duplicate removal (see 2a), quality filter, and trim adapter from the 3' end from the reads
   - RT primer is cleaved, leaving adapters. 
   - Remove adapter region from the 3' end of the read.
   - The adapter is an optional input parameter.
   - Default is to remove sequnces less than N=33 reads. 
   - Q33 specifies the quality score encoding format.
 
-3. Quality filter.
-
-4. Remove duplicates.
+2a. Remove duplicates.
   - This step takes advantage of the fact that 5' end of each read has a random barcode.
   - Each initial starting molecule that was RT'd will have a unique barcode.
   - Therefore, PCR duplicates are removed by collapsing molecules with identical 5' barcode sequences.
 
-5. After duplicate removal, remove the 5' barcode sequence.
+3. After duplicate removal, remove the 5' barcode sequence.
 
-6. We then map to a repeat index.
-  - We use k=1, meaning bt2 will search for 1 distinct, valid alignments for each read.
-  - This step allows us to both remove reads that are normally blacklisted and also map reads to the repeat index.
-  - The repeat index is derived from UCSC Genome Browser.
+4. We then map to a repeat index, then to a tRNA index, then to a genome index.
+  - We only keep reads that are unique and perfectly aligned.
+  - We then remove reads that map to blacklist or repeat regions.
 
-7. After mapping, we isolate the 5' position (RT) stop for both positive and negative strand reads.
+5. After mapping, we isolate the 5' position (RT) stop for both positive and negative strand reads.
   - This represents the cross-link site in the initial experiment.
 
-8. For each strand, we merge RT stops between replicates. 
+6. For each strand, we merge RT stops between replicates. 
   - This means that at RT stop position must be conserved between replicates.
   - If conserved, we count the total number of instances of the RT position for both replicates.
   - If the total counts exceed a specified threshold, then we record these RT stops.
   - Finally, we re-generate a "read" around the RT stop using the passed parameter "expand," 
   - A "read" around the RT stop is required for downstream processing.
 
-9. Reads that do not map to the repeat index are then mapped to hg19.
-  - The mapped reads are processed by samtools, repeat masker, and blacklist filter.
-  - As with the repeat index, we then merge RT stops.
-
-10. Expanded reads from RT stop merging are passed to CLIPper, a peak calling algorithm.
+7. Expanded reads from RT stop merging are passed to CLIPper, a peak calling algorithm.
   - CLIPper returns a bed-like file format with window coordinates, reads counted per window, etc.
   - We use these windows to extract "low FDR" reads from the total set of reads passed to CLIPper.
   - We then make bedGraph and BigWig files from this complete pool of "low FDR" reads, allowing easy visualization. 
 
-11. Partition "low FDR" reads by gene type.
+8. Partition "low FDR" reads by gene type.
   - We partition the gene names recoved from CLIPper using ENSEMBL annotation of gene name by RNA type.
   - Once this is done, we also split the "low FDR" reads recovered from CLIPper by type using the gene name.
   - Protein coding and lincRNA genes can be embedded snoRNAs or miRNAs that make this more challenging.
@@ -176,7 +169,7 @@ How the pipeline works
   - Both are derived from Ensembl annotations.
   - These masks allow us to remove all "protein coding" RT stops that fall within annotated sno/mi-RNA regions.
 
-12. Quantification of reads per gene.
+9. Quantification of reads per gene.
   - For each gene type, we quantify the number of reads per gene.
   - For all but snoRNAs, this is computed using the bed files obtained above.
   - For snoRNAs, we intersect the initial pool of "low FDR" reads with custom annotation file. 
@@ -184,22 +177,22 @@ How the pipeline works
   - Collectively, this gives us reads per gene for each gene type.
   - All are based upon ENSEMBL annotation except for the snoRNAs.
 
-13. Summary of RT stop intensity around CLIPper cluster centers.
+10. Summary of RT stop intensity around CLIPper cluster centers.
   - We generate a bed file of cluster center positions using the CLIPper cluster file output.
   - We use a custom perl script that generates a heatmap of RT stop intensty per cluster.
   - This allows us to later visualize the distribution of RT stops per cluster.
 
-14. Parition protein coding reads by UTR.
+11. Partition protein coding reads by UTR.
   - We intersect sno/mi-RNA filtered reads with ENSEMBL-derived UTR coordinates. 
   - We perform this such that each read assignment is mutually exclusive.
   - This only isolates reads that fall within each UTR type.
   - Similarly, we use a custom perl script to generate a matrix of read intensity per gene.
   - This provides a complete binding profile per gene.
 
-15. Partition reads by ncRNA binding region.
+12. Partition reads by ncRNA binding region.
   - For non-coding RNAs, we simply annotate reads with the start and stop position for each ncRNA.
   - This allows us to determine the position of each RT stop with respect to the full length of the gene.
 
-16. Partition repeat-mapped RT stops by region.
+13. Partition repeat-mapped RT stops by region.
   - The repeat RNA mapped RT stops are paritioned using the repeat custom index annotation. 
   - As with the ncRNAs, this is later used for visualization.
