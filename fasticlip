@@ -33,7 +33,7 @@ parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the e
 parser.add_argument('-t', metavar='THRESHOLD', type=int, help="Stringency of RT stop filtering, where higher numbers indicate greater stringency. Default is 3.", default=3)
 parser.add_argument('-q', metavar='Q', type=int, help="Minimum quality score to keep during filtering. Default is 25.", default=25)
 parser.add_argument('-p', metavar='P', type=int, help="Percentage of bases that must have quality > q during filtering. Default is 80.", default=80)
-parser.add_argument('-l', metavar='L', type=int, help="Minimum length of read. Default is 20.", default=20)
+parser.add_argument('-l', metavar='L', type=int, help="Minimum length of read. Default is 15.", default=15)
 
 
 # organism
@@ -45,8 +45,8 @@ if args.hg19: org = 'human'
 else: org = 'mouse'
 
 # input files
-unzippedreads = args.i
-for fn in unzippedreads:
+reads = args.i
+for fn in reads:
 	if not glob.glob(fn):
 		print "Error: input file " + fn + " not accessible. Exiting."
 		exit()
@@ -103,6 +103,7 @@ if org == 'human':
 	genesFile=os.getcwd()+'/docs/hg19/hg19_ensembl_genes.txt' # Gene annotation file.
 	sizesFile=os.getcwd()+'/docs/hg19/hg19.sizes' # Genome sizes file. 
 	snoRNAindex=os.getcwd()+'/docs/hg19/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
+	tRNAindex=os.getcwd()+'/docs/hg19/trna/tRNA_hg19'
 	geneStartStopRepo=os.getcwd()+'/docs/hg19/all_genes.txt'
 elif org == 'mouse':
 	repeat_index=os.getcwd() + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
@@ -132,6 +133,7 @@ elif org == 'mouse':
 	genesFile=os.getcwd()+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
 	sizesFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome sizes file. 
 	snoRNAindex=os.getcwd()+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
+	tRNAindex=os.getcwd()+'/docs/mm9/tRNA/tRNA_mm9'
 	geneStartStopRepo=os.getcwd()+'/docs/mm9/all_genes.txt'
 
 ### start running pipeline ###
@@ -150,209 +152,170 @@ logOpen.write("\n\n\n")
 print "Processing sample %s" %(sampleName)
 logOpen.write("Processing sample: "+sampleName+'\n')
 
-def trimReads3p(unzippedreads,adapter3p):
-	# Usage: Trims a specified adapter sequence from the 3p end of the reads.
-	# Input: List of fastq files.
-	# Output: List of 3p trimmed files.
-	trimparam='-a'+adapter3p # Adapter string
-	trimmedReads=[]
-	try:
-		for inread in unzippedreads:
-			outread=outfilepath+os.path.basename(inread)
-			outread=outread.replace(".fastq", "_3ptrimmed.fastq")
-			if glob.glob(outread) and glob.glob(outfilepath + '*_3ptrimmed.fastq'):
-				trimmedReads=trimmedReads+[outread]
-				print "3p trimming already done."
-				logOpen.write("3p trimming already done.\n")
-				continue
-				
-			lengthparam = '-l' + str(l)	
-			process=subprocess.Popen(['fastx_clipper',trimparam,'-n',lengthparam,'-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-			stdout, stderr = process.communicate()
-			logOpen.write("Trim 3p end of reads.\n")
-			logOpen.write("Stdout: %s.\n"%stdout)
-			logOpen.write("Stderr: %s.\n"%stderr)
-			trimmedReads=trimmedReads+[outread]
-		return trimmedReads
-	except:
-		logOpen.write("Problem with 3p trimming.\n")
-		print "Problem with 3p trimming."
+def remove_dup(reads, q, p):
+	uniq_reads = []
+	for inread in reads:
+		outread = outfilepath + os.path.basename(inread)
+		is_compressed = True if inread[-3:] == '.gz' else False
+		if is_compressed:
+			outread=outread.replace(".fastq.gz", "_nodup.fasta")		
+		else:
+			outread=outread.replace(".fastq", "_nodup.fasta")
+			
+		uniq_reads.append(outread)
+		if glob.glob(outread):
+			uniq_reads=uniq_reads+[outread]
+			print "Filtering and duplicate removal already done."
+			logOpen.write("Filtering and duplicate removal already done.\n")
+			continue
+			
+		if is_compressed:
+			cmd_1 = "gunzip -c {}".format(inread)
+		else:
+			cmd_1 = "cat {}".format(inread)
+			
+		cmd_2 = "fastq_quality_filter -Q33 -q{} -p{}".format(q, p)
+		cmd_3 = "fastx_collapser -Q33 > {}".format(outread)
+		full_cmd = ' | '.join([cmd_1, cmd_2, cmd_3])
+		print full_cmd
+		os.system(full_cmd)
+	return uniq_reads
 
-print "Trim 3p adapter from reads."
-trimmedReads3p=trimReads3p(unzippedreads,iCLIP3pBarcode)
+dup_removed_reads = remove_dup(reads, q, p)
 
-
-def qualityFilter(trim3pReads,q,p):
-	# Usage: Filters reads based upon quality score.
-	# Input: List of fastq file names as well as the quality paramters p and q.
-	# Output: List of modified fastq file names.
-	qualityparam='-q'+str(q)
-	percentrageparam='-p'+str(p)
-	filteredReads=[]
-	try:
-		for inread in trim3pReads:
-			outread=inread.replace(".fastq", "_filter.fastq")
-			if glob.glob(outread) and glob.glob(outfilepath + '*_nodupe.fastq'):
-				filteredReads=filteredReads+[outread]
-				print "Quality filter already done."
-				logOpen.write("Quality filter already done.\n")
-				continue
-				
-			process=subprocess.Popen(['fastq_quality_filter',qualityparam,percentrageparam,'-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-			stdout, stderr=process.communicate()
-			logOpen.write("Perform quality filtering.\n")
-			logOpen.write("Stdout: %s.\n"%stdout)
-			logOpen.write("Stderr: %s.\n"%stderr)
-			filteredReads=filteredReads+[outread]
-		return filteredReads
-	except:
-		logOpen.write("Problem with quality filter.\n")
-		print "Problem with quality filter."
-
-print "Perform quality filtering."
-filteredReads=qualityFilter(trimmedReads3p,q,p)
-
-
-def dupRemoval(filteredReads):
-	# Usage: Removes duplicate reads.
-	# Input: List of fastq file names.
-	# Output: List of reads in FASTA format.
-	program=os.getcwd() + '/bin/fasta_to_fastq.pl'
-	noDupes=[]
-	try:
-		for inread in filteredReads:
-			outread=inread.replace(".fastq","_nodupe.fasta")
-			fastqOut=outread.replace('.fasta', '.fastq')
-			if glob.glob(fastqOut): 
-				noDupes=noDupes+[fastqOut]
-				print "Duplicate removal already done."
-				logOpen.write("Duplicate removal already done.\n")
-				continue
-				
-			process=subprocess.Popen(['fastx_collapser','-Q33','-i',inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-			stdout, stderr=process.communicate()
-			logOpen.write("Perform duplicate removal.\n")
-			logOpen.write("Stdout: %s.\n"%stdout)
-			logOpen.write("Stderr: %s.\n"%stderr)
-			outfh=open(fastqOut, 'w')
-			process=subprocess.Popen(['perl',program,outread],stdout=outfh)
-			process.communicate() # Wait for the process to complete.
-			os.remove(outread) # Remove the remaining .fasta file.
-			noDupes=noDupes+[fastqOut]
-		return noDupes
-	except:
-		logOpen.write("Problem with duplicate removal.\n")
-		print "Problem with duplicate removal."
-		
-print "Perform duplicate removal."
-nodupReads=dupRemoval(filteredReads)
-
-
-def trimReads5p(nodupes,n):
+def trim(reads, adapter3p, l, n):
 	# Usage: Trims a specified number of bases from the 5' end of each read.
 	# Input: List of fastq files.
 	# Output: List of 5p trimmed files.
-	trimparam='-f'+str(n)
-	trimmedReads=[]
-	try:
-		for inread in nodupes:
-			outread=inread.replace(".fastq", "_5ptrimmed.fastq")
-			if glob.glob(outread):
-				trimmedReads=trimmedReads+[outread]
-				print "5' barcode trimming already done."
-				logOpen.write("5' barcode trimming already done.\n")
-				continue
-				
-			process=subprocess.Popen(['fastx_trimmer', trimparam, '-Q33', '-i', inread,'-o',outread],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-			stdout, stderr=process.communicate()
-			logOpen.write("Perform 5' barcode trimming.\n")
-			logOpen.write("Stdout: %s.\n"%stdout)
-			logOpen.write("Stderr: %s.\n"%stderr)
-			trimmedReads=trimmedReads+[outread]
-		return trimmedReads
-	except:
-		logOpen.write("Problem with 5' barcode trimming.\n")
-		print "Problem with 5' barcode trimming."
+	program = os.getcwd() + "/bin/fasta_to_fastq.pl"
+	trimmedReads = []
+	for inread in reads:
+		outread = inread.replace("_nodup.fasta", "_trimmed.fastq")
+		trimmedReads.append(outread)
+		if glob.glob(outread):
+			print "5' and 3' barcode trimming already done."
+			logOpen.write("5' and 3' barcode trimming already done.\n")
+			continue
+		
+		cmd_1 = "perl {} {}".format(program, inread)
+		cmd_2 = "fastx_clipper -n -l{} -Q33 -a {}".format(l, adapter3p)
+		cmd_3 = "fastx_trimmer -f{} -Q33 > {}".format(n, outread)
+		full_cmd = ' | '.join([cmd_1, cmd_2, cmd_3])
+		print full_cmd
+		os.system(full_cmd)
+		logOpen.write("Perform 5' and 3' barcode trimming.\n")
+	return trimmedReads
 
 print "Perform 5' barcode trimming."
-trimmedReads5p=trimReads5p(nodupReads,iCLIP5pBasesToTrim)
+processed_reads = trim(dup_removed_reads, iCLIP3pBarcode, l, iCLIP5pBasesToTrim)
 
-
-def runBowtie(fastqFiles,index,index_tag):
-	# Usage: Read mapping to reference.
+def runBowtie(processed_reads, repeat_index, trna_index, genome_index):
+	# Usage: Read mapping.
 	# Input: Fastq files of replicate trimmed read files.
 	# Output: Path to samfile for each read.
-	program='bowtie2'
-	mappedReads=[]
-	unMappedReads=[]
-	try:
-		for infastq in fastqFiles:
-			outfile=infastq.replace(".fastq","_mappedTo%s.sam"%index_tag)
-			unmapped=infastq.replace(".fastq","_notMappedTo%s.fastq"%index_tag)
-			if glob.glob(outfile) and glob.glob(unmapped):
-				mappedReads = mappedReads + [outfile]
-				unMappedReads = unMappedReads + [unmapped]
-				print "Mapping to %s already done."%index_tag
-				logOpen.write("Mapping to %s already done.\n"%index_tag)
-				continue
-				
-			process=subprocess.Popen([program,'-x',index,'-k',k,'-U',infastq,'--un',unmapped,'-S',outfile],stderr=subprocess.STDOUT,stdout=subprocess.PIPE)
-			stdout,stderr=process.communicate()
-			logOpen.write("Perform mapping to %s index.\n"%index_tag)
-			logOpen.write("Stdout: %s.\n"%stdout)
-			logOpen.write("Stderr: %s.\n"%stderr)		
-			mappedReads = mappedReads + [outfile]
-			unMappedReads = unMappedReads + [unmapped]
-		return (mappedReads,unMappedReads)
-	except:
-		logOpen.write("Problem with mapping.\n")
-		print "Problem with mapping."
 
-print "Run mapping to repeat index."  
-mappedReads_rep,unmappedReads_rep=runBowtie(trimmedReads5p,repeat_index,'repeat')
+	rep_sam = []
+	trna_sam = []
+	genome_sam = []
+	for infastq in processed_reads:
+		rep_mapped = infastq.replace(".fastq", "_mappedToRepeat.sam")
+		rep_unmapped = infastq.replace(".fastq", "_notMappedToRepeat.fastq")
+		trna_mapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_mappedToTrna.sam")
+		trna_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToTrna.fastq")
+		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", "_mappedToGenome.sam")
+		rep_sam.append(rep_mapped)
+		trna_sam.append(trna_mapped)
+		genome_sam.append(genome_mapped)
 
+		if glob.glob(genome_mapped):
+			print "Bowtie already done."
+			logOpen.write("Bowtie already done.\n")
+			continue
+			
+		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(repeat_index, infastq, rep_unmapped, rep_mapped, rep_mapped + '_stats.txt')
+		print cmd
+		os.system(cmd)
+		
+		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(trna_index, rep_unmapped, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
+		print cmd
+		os.system(cmd)
+		
+		cmd = "bowtie2 -p 8 -x {} {} -S {} > {} 2>&1".format(genome_index, trna_unmapped, genome_mapped, genome_mapped + '_stats.txt')
+		print cmd
+		os.system(cmd)
+		
+		logOpen.write("Perform mapping.")
+	return rep_sam, trna_sam, genome_sam
 
-def runSamtools(samfiles):
-	# Usage: Samfile processing.
+print "\nRun mapping to repeat index."  
+(rep_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, tRNAindex, index)
+
+def run_samtools(samfiles):
+	# Usage: Samfile processing (also takes unique mappers only)
 	# Input: Sam files from Bowtie mapping.
 	# Output: Sorted bedFiles.
 	program = 'samtools'
 	program2 = 'bamToBed'
-	outBedFiles=[]
-	try:
-		for samfile in samfiles:
-			bamfile = samfile.replace('.sam','.bam')  
-			bamfile_sort = bamfile.replace('.bam','_sorted') 
-			bedFile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
+	out_bedfiles = []
+	for samfile in samfiles:
+		bamfile_sort = samfile.replace('.sam','_sorted') 
+		bedfile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
+		
+		out_bedfiles.append(bedfile)
+		if glob.glob(bedfile):
+			print "Samtools already done."
+			logOpen.write("Samtools already done.\n")
+			continue
 			
-			outBedFiles=outBedFiles+[bedFile]   
+		cmd_1 = "cat {} | samtools view -q 42 -Suo - - | samtools sort - {}".format(samfile, bamfile_sort)
+		cmd_2 = "bamToBed -i {} > {}".format(bamfile_sort + '.bam', bedfile)
+		# cmd_3 = "samtools flagstat {} > {}".format(bamfile_sort + '.bam', bamfile_sort + '_stats.txt')
+		cmd_4 = "rm -f {}".format(samfile)
+		print cmd_1
+		os.system(cmd_1)
+		print cmd_2
+		os.system(cmd_2)
+		# print cmd_3
+		# os.system(cmd_3)
+		
+	return out_bedfiles
 
-			if glob.glob(bedFile):
-				print "Samtools already done."
-				logOpen.write("Samtools already done.\n")
-				continue
-				
-			proc = subprocess.Popen( [program,'view','-bS','-o', bamfile, samfile]) 
-			proc.communicate()
-			proc2 = subprocess.Popen([program,'sort',bamfile, bamfile_sort])
-			proc2.communicate()
-			outfh = open(bedFile,'w')
-			proc3 = subprocess.Popen( [program2,'-i', bamfile_sort+'.bam'],stdout=outfh)
-			proc3.communicate()
-			
-			# remove sam and bamfile
-			proc4 = subprocess.Popen(["rm", "-f", samfile, bamfile])
-			proc4.communicate()
-			
-		return outBedFiles
-	except:
-		logOpen.write("Problem with samtools.\n")
-		print "Problem with samtools."
-
-print "Run samtools."
+print "\nRun samtools."
 logOpen.write("Run samtools.\n")
-mappedBedFiles_rep=runSamtools(mappedReads_rep)
+rep_bed = run_samtools(rep_sam)
+trna_bed = run_samtools(trna_sam)
+gen_bed = run_samtools(gen_sam)
 
+def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
+	# Usage: Remove repeat regions from bedfile following mapping.
+	# Input: .bed file after mapping (duplicates removed by samtools) and blastlist regions removed.
+	# Output: Bedfile with repeat regions removed.
+
+	masked=[]
+	for bedIn in gen_bed:
+		no_blacklist = bedIn.replace('.bed', '_noBlacklist.bed')
+		no_repeat = bedIn.replace('.bed', '_noRepeat.bed')
+		repeat = bedIn.replace('.bed', '_repeat.bed')
+		if glob.glob(no_repeat) and glob.glob(repeat): 
+			print "Repeat masking already done."
+			logOpen.write("Repeat masking already done.\n")
+			continue
+			
+		cmd_1 = "bedtools intersect -a {} -b {} -v -sorted > {}".format(bedIn, blacklistregions, no_blacklist)
+		cmd_2 = "bedtools intersect -a {} -b {} -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
+		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s -f 0 > {}".format(no_blacklist, repeatregions, repeat)
+		print cmd_1
+		os.system(cmd_1)
+		print cmd_2
+		os.system(cmd_2)
+		print cmd_3
+		os.system(cmd_3)
+		masked.append(no_repeat)
+	return masked
+	
+print "\nRun repeat and blacklist region masker."
+logOpen.write("Run repeat and blacklist masker.\n")
+gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
 
 def separateStrands(mappedReads):
 	# Usage: separate positive and negative strands.
@@ -411,12 +374,11 @@ def isolate5prime(strandedReads):
 				f.write('\t'.join((chrom,start,strand))+'\n')
 	return RTstops
 
-print "RT stop isolation (repeat)."
+print "\nRT stop isolation (repeat)."
 logOpen.write("RT stop isolation (repeat).\n")
-readsByStrand_rep=separateStrands(mappedBedFiles_rep)
+readsByStrand_rep=separateStrands(rep_bed)
 negativeRTstop_rep=isolate5prime(modifyNegativeStrand(readsByStrand_rep[0])) 
 positiveRTstop_rep=isolate5prime(readsByStrand_rep[1]) 
-
 
 def fileCat(destinationFile,fileList):
 	f = open(destinationFile, "w")
@@ -468,72 +430,10 @@ else:
 	fileCat(negAndPosMerged,[posMerged,negMerged])
 	
 
-print "Run mapping to %s."%index_tag
-mappedReads,unmappedReads=runBowtie(unmappedReads_rep,index,index_tag)
-
-
-print "Run samtools."
-logOpen.write("Run samtools.\n")
-mappedBedFiles=runSamtools(mappedReads)
-
-
-def runRepeatMask(mappedReads,repeatregions):
-	# Usage: Remove repeat regions from bedfile following mapping.
-	# Input: .bed file after mapping (duplicates removed by samtools) and blastlist regions removed.
-	# Output: Bedfile with repeat regions removed.
-	program='intersectBed'
-	masked=[]
-	try:
-		for bedIn in mappedReads:
-			noRepeat=bedIn.replace('.bed','_noRepeat.bed')
-			masked=masked+[noRepeat]
-			if glob.glob(noRepeat): 
-				print "Repeat masking already done."
-				logOpen.write("Repeat masking already done.\n")
-				continue
-				
-			outfh=open(noRepeat, 'w')
-			proc=subprocess.Popen([program,'-a',bedIn,'-b',repeatregions,'-v','-s'],stdout=outfh)
-			proc.communicate()
-			outfh.close()
-		return (masked)
-	except:
-		print "Problem with repeat masking."
-		logOpen.write("Problem with repeat masking.\n")
-		
-def runBlacklistRegions(mappedReads,blacklistregions):
-	# Usage: Remove blacklisted regions from bedfile following mapping.
-	# Input: .bed file after mapping (duplicates removed by samtools).
-	# Output: Bedfile with blacklisted regions removed.
-	program='intersectBed'
-	blackListed=[]
-	try:
-		for bedIn in mappedReads:
-			noBlacklist=bedIn.replace('.bed','_noBlacklist.bed')
-			blackListed=blackListed+[noBlacklist]
-			if glob.glob(noBlacklist): 
-				print "Blacklist already done."
-				logOpen.write("Blacklist already done.\n")
-				continue
-			
-			outfh=open(noBlacklist, 'w')
-			proc=subprocess.Popen([program,'-a',bedIn,'-b',blacklistregions,'-v'],stdout=outfh)
-			proc.communicate()
-			outfh.close()
-		return (blackListed)
-	except:
-		print "Problem with blacklist."
-		logOpen.write("Problem with blacklist.\n")
-		
-print "Run repeat and blacklist region masker."
-logOpen.write("Run repeat and blacklist masker.\n")
-blacklistedBedFiles=runBlacklistRegions(mappedBedFiles,blacklistregions)
-maskedBedFiles=runRepeatMask(blacklistedBedFiles,repeatregions)
-
 
 print "RT stop isolation."
 logOpen.write("RT stop isolation.\n")
-readsByStrand=separateStrands(maskedBedFiles)
+readsByStrand=separateStrands(gen_norepeat_bed)
 negativeRTstop=isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
 positiveRTstop=isolate5prime(readsByStrand[1]) 
 
@@ -550,7 +450,6 @@ else:
 	mergeRT(positiveRTstop,posMerged,threshold,expand,'+')
 	mergeRT(negativeRTstop,negMerged,threshold,expand,'-')
 	fileCat(negAndPosMerged,[posMerged,negMerged])
-
 
 
 def runCLIPPER(RTclusterfile,genome,genomeFile):
@@ -1037,39 +936,45 @@ for ix in repeatAnnotDF.index:
 
 #%matplotlib inline
 import matplotlib
+import commands
 matplotlib.rcParams['savefig.dpi'] = 2 * matplotlib.rcParams['savefig.dpi']
 
-
 def lineCount(filename):
-	i=0
-	with open(filename) as f:
-		for i,l in enumerate(f):
-			pass
-	return i+1
+	print filename
+	if filename[-3:] == '.gz':
+		cmd_1 = "gunzip -c {}".format(filename)
+	else:
+		cmd_1 = "cat {}".format(filename)
+	cmd = cmd_1 + ' | wc -l'
+	return int(commands.getstatusoutput(cmd)[1])
 
 def plot_ReadAccounting(outfilepath,sampleName):
-	rawRead1=unzippedreads[0]
-	rawRead2=unzippedreads[1]
-	base1 = outfilepath + os.path.splitext(os.path.basename(rawRead1))[0]
-	base2 = outfilepath + os.path.splitext(os.path.basename(rawRead2))[0]
-	reads3pTrim=[base1+'_3ptrimmed.fastq',base2+'_3ptrimmed.fastq']
-	readsFilter=[base1+'_3ptrimmed_filter.fastq',base2+'_3ptrimmed_filter.fastq']
-	readsNoDupes=[base1+'_3ptrimmed_filter_nodupe.fastq',base2+'_3ptrimmed_filter_nodupe.fastq']
-	readsMappedReapeat=[base1+'_3ptrimmed_filter_nodupe_5ptrimmed_mappedTorepeat_withDupes.bed',base2+'_3ptrimmed_filter_nodupe_5ptrimmed_mappedTorepeat_withDupes.bed']
-	readsMappedHg19=[base1+'_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes.bed'%index_tag,base2+'_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes.bed'%index_tag]
-	readsMappedBlacklist=[base1+'_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes.bed'%index_tag,base2+'_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes.bed'%index_tag]
-	readsMappedRepeatMask=[base1+'_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag,base2+'_3ptrimmed_filter_nodupe_5ptrimmed_notMappedTorepeat_mappedTo%s_withDupes_noBlacklist_noRepeat.bed'%index_tag]
+	rawRead1=reads[0]
+	rawRead2=reads[1]
+	base1 = os.path.splitext(os.path.basename(rawRead1))[0]
+	base1 = base1.replace('.fastq.gz', '').replace('.fastq', '')	
+	base2 = os.path.splitext(os.path.basename(rawRead2))[0]
+	base2 = base2.replace('.fastq.gz', '').replace('.fastq', '')
+	base1 = outfilepath + base1
+	base2 = outfilepath + base2
+	reads_uniq_trim=[base1+'_trimmed.fastq', base2+'_trimmed.fastq']
+	readsMappedRepeat=[base1+'_trimmed_mappedToRepeat_withDupes.bed', base2+'_trimmed_mappedToRepeat_withDupes.bed']
+	readsMappedTrna=[base1+'_trimmed_mappedToTrna_withDupes.bed', base2+'_trimmed_mappedToTrna_withDupes.bed']
+	readsMappedGenome=[base1+'_trimmed_mappedToGenome_withDupes.bed', base2+'_trimmed_mappedToGenome_withDupes.bed']
+	readsMappedRepeatMask=[base1+'_trimmed_mappedToGenome_withDupes_noRepeat.bed', base2+'_trimmed_mappedToGenome_withDupes_noRepeat.bed']
 	clipperIN=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIPPERin.bed'%(threshold,index_tag)
 	clipperOUT=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_lowFDRreads.bed'%(threshold,index_tag)
-	if org == 'human': fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMapped(R2)','Hg19Mapped (R1)','Hg19Mapped(R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
-	elif org == 'mouse': fileNames=['Raw (R1)','Raw (R2)','3p Trim (R1)','3p Trim (R2)','Filter (R1)','Filter (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMapped(R2)','Mm9Mapped (R1)','Mm9Mapped(R2)','Blacklist (R1)','Blacklist (R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
-	filesToCount=[rawRead1,rawRead2,reads3pTrim[0],reads3pTrim[1],readsFilter[0],readsFilter[1],readsNoDupes[0],readsNoDupes[1],readsMappedReapeat[0],readsMappedReapeat[1],readsMappedHg19[0],readsMappedHg19[1],readsMappedBlacklist[0],readsMappedBlacklist[1],readsMappedRepeatMask[0],readsMappedRepeatMask[1],clipperIN,clipperOUT]
+	if org == 'human': 
+		fileNames=['Raw (R1)','Raw (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMapped(R2)', 'tRNA Mapped (R1)', 'tRNA Mapped (R2)', 'Hg19 Mapped (R1)','Hg19 Mapped(R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
+	elif org == 'mouse': 
+		fileNames=['Raw (R1)','Raw (R2)','No dupes (R1)','No dupes (R2)','RepeatMapped(R1)','RepeatMapped(R2)', 'tRNA Mapped (R1)', 'tRNA Mapped (R2)', 'Mm9 Mapped (R1)','Mm9 Mapped(R2)','RepeatMask(R1)','RepeatMask(R2)','ClipperIn','ClipperOut']
+	filesToCount=[rawRead1, rawRead2, reads_uniq_trim[0], reads_uniq_trim[1], readsMappedRepeat[0],readsMappedRepeat[1], readsMappedTrna[0],readsMappedTrna[1], readsMappedGenome[0], readsMappedGenome[1], readsMappedRepeatMask[0], readsMappedRepeatMask[1], clipperIN,clipperOUT]
 	
 	counts=[]
 	counter=0
 	for fileString in filesToCount:
 		temp=lineCount(fileString)
-		if counter < 8:
+		if counter < 4:
 			temp=temp/4 # Fastq files
 		counts=counts+[temp]
 		counter += 1
@@ -1094,11 +999,8 @@ def plot_ReadAccounting(outfilepath,sampleName):
 
 print "Making Figure 1"
 logOpen.write("Making Figure 1\n")
-plt.subplot(2,3,1) 
-plot_ReadAccounting(outfilepath,sampleName)
-proc = subprocess.Popen(["rm", "-f", "*.fastq"])
-proc.communicate()
-
+# proc = subprocess.Popen(["rm", "-f", "*.fastq"])
+# proc.communicate()
 
 def plot_BoundGeneTypes(outfilepath,sampleName):
 	record=pd.DataFrame()   
@@ -1126,9 +1028,6 @@ def plot_BoundGeneTypes(outfilepath,sampleName):
 	plt.tick_params(axis='yticks',labelsize=5)
 	plt.title('Bound genes by class',fontsize=5)
 	
-plt.subplot(2,3,6)
-plot_BoundGeneTypes(outfilepath,sampleName)
-
 
 def plot_ReadsPerCluster(outfilepath,sampleName):
 	readPerCluster=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters.readsPerCluster'%(threshold,index_tag)
@@ -1151,9 +1050,6 @@ def plot_ReadsPerCluster(outfilepath,sampleName):
 	plt.xlim(0,100) # Make the histogram easy to view.
 	# plt.xlim(-interval,np.max(center)+interval)
 	
-plt.subplot(2,3,2)
-plot_ReadsPerCluster(outfilepath,sampleName)
-
 
 def plot_ClusterSizes(outfilepath,sampleName):
 	clipClusters=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters'%(threshold,index_tag)
@@ -1170,10 +1066,6 @@ def plot_ClusterSizes(outfilepath,sampleName):
 	locs,pltlabels = plt.yticks(fontsize=5)
 	plt.title('Cluster size',fontsize=5)
 
-plt.subplot(2,3,3)
-plot_ClusterSizes(outfilepath,sampleName)
-
-
 def plot_clusterBindingIntensity(outfilepath,sampleName):
 	clusterCenterHeatmap=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_cleaned_sorted.clusterCenter_heatmap.txt'%(threshold,index_tag)
 	hmap=pd.DataFrame(pd.read_table(clusterCenterHeatmap,header=None,skiprows=1))
@@ -1187,10 +1079,6 @@ def plot_clusterBindingIntensity(outfilepath,sampleName):
 	locs,pltlabels = plt.yticks(fontsize=5)
 	plt.ylabel('Cluster number',fontsize=5)
 	plt.title('Read distribution',fontsize=5)
-
-plt.subplot(2,3,4)
-plot_clusterBindingIntensity(outfilepath,sampleName)
-
 
 def readUTRfile(path):
 	geneCounts=pd.read_csv(path,header=None)
@@ -1214,10 +1102,6 @@ def plot_readsBymRNAregion(outfilepath,sampleName):
 	for wedge in pie_wedges[0]:
 		wedge.set_edgecolor('black')
 		wedge.set_lw(1)
-
-ax=plt.subplot(2,3,5)
-plot_readsBymRNAregion(outfilepath,sampleName)
-
 
 fig1=plt.figure(1)
 
@@ -1344,6 +1228,26 @@ fig2.savefig(outfilepath+'Figure2.png',format='png',bbox_inches='tight',dpi=150,
 fig2.savefig(outfilepath+'Figure2.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
 
+def read_csv_by_line(fn):
+	import csv
+	
+	RTpositions = []
+	start = 0
+	end = 0
+	with open(fn, 'r') as ifile:
+		reader = csv.reader(ifile)
+		reader.next()
+		for row in reader:
+			RTpositions.append(int(row[7]))
+			
+		ifile.seek(0)
+		reader.next()  # skip header
+		row = reader.next()
+		start = int(row[9])
+		end = int(row[8])
+	return np.array(RTpositions), start, end
+	
+
 def plot_repeatRNA(outfilepath,sampleName):
 	repeat_genome=np.genfromtxt(repeatGenomeBuild,dtype='string')
 	repeat_genome_bases=repeat_genome[1]
@@ -1357,10 +1261,12 @@ def plot_repeatRNA(outfilepath,sampleName):
 		name=path.split('RepeatRNAreads_')[-1]
 		try:
 			# Read in each RT stop file
-			hits_per_rep=pd.read_csv(path)
-			RTpositions=hits_per_rep['RT_stop']
-			start=hits_per_rep.loc[0,'Repeat_Start']
-			end=hits_per_rep.loc[0,'Repeat_End']
+			# hits_per_rep=pd.read_csv(path)
+			# RTpositions=hits_per_rep['RT_stop']
+			# start=hits_per_rep.loc[0,'Repeat_Start']
+			# end=hits_per_rep.loc[0,'Repeat_End']
+			(RTpositions, start, end) = read_csv_by_line(path)
+			
 			# Histogram of RT stops across gene body
 			bins=range(start,end+2,1)
 			hist,bins=np.histogram(RTpositions,bins=bins)
@@ -1406,15 +1312,17 @@ fig3.tight_layout()
 fig3.savefig(outfilepath+'Figure3.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
 fig3.savefig(outfilepath+'Figure3.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
-
 def plot_rDNA(outfilepath,sampleName):
 	plt.subplot2grid((3,3),(0,0),colspan=3)
 	name='rDNA'
 	rDNA=glob.glob(outfilepath + 'PlotData_RepeatRNAreads_rDNA')
-	hits_per_rep=pd.read_csv(rDNA[0])
-	RTpositions=hits_per_rep['RT_stop']
-	start=hits_per_rep.loc[0,'Repeat_Start']
-	end=hits_per_rep.loc[0,'Repeat_End']
+	# hits_per_rep=pd.read_csv(rDNA[0])
+	# RTpositions=hits_per_rep['RT_stop']
+	# start=hits_per_rep.loc[0,'Repeat_Start']
+	# end=hits_per_rep.loc[0,'Repeat_End']
+	
+	(RTpositions, start, end) = read_csv_by_line(rDNA[0])
+
 	bins=range(start,end+2,1)
 	hist,bins=np.histogram(RTpositions,bins=bins)
 	width=0.7*(bins[1]-bins[0])
@@ -1616,7 +1524,7 @@ os.system("mv *_withDupes_noBlacklist_noRepeat.bed rawdata")
 os.system("mv *_withDupes.bed rawdata")
 os.system("mv *_notMappedTorepeat.fastq rawdata")
 os.system("mv *threshold*mergedRT_CLIP_clusters_cleaned.bed rawdata")
-os.system("mv runLog rawdata")
+os.system("mv runLog *stats.txt *.bam rawdata")
 
 os.system("mkdir figures")
 os.system("mv Figure* figures")
