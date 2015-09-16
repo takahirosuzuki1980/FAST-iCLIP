@@ -22,7 +22,7 @@ global logOpen
 ### Parsing arguments ###
 
 parser = argparse.ArgumentParser(description="FAST-iCLIP: a pipeline to process iCLIP data", epilog="Example: fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results")
-parser.add_argument('-i', metavar=("INPUT1", "INPUT2"), nargs=2, help="2 input FASTQ files separated by a space", required=True)
+parser.add_argument('-i', metavar=("INPUT1", "INPUT2"), nargs=2, help="2 input fastq or fastq.gz files separated by a space", required=True)
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
 group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
@@ -31,6 +31,7 @@ parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output
 parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 14.", default=14)
 parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the end of each read. Default is AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.", default='AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG')
 parser.add_argument('-t', metavar='THRESHOLD', type=int, help="Stringency of RT stop filtering, where higher numbers indicate greater stringency. Default is 3.", default=3)
+parser.add_argument('-m', metavar='MAPQ', type=int, help="Minimum MAPQ score allowed. Default is 42.", default=42)
 parser.add_argument('-q', metavar='Q', type=int, help="Minimum quality score to keep during filtering. Default is 25.", default=25)
 parser.add_argument('-p', metavar='P', type=int, help="Percentage of bases that must have quality > q during filtering. Default is 80.", default=80)
 parser.add_argument('-l', metavar='L', type=int, help="Minimum length of read. Default is 15.", default=15)
@@ -66,6 +67,7 @@ logOpen=open(logFile, 'w')
 
 ### Parameters ###
 iCLIP3pBarcode=args.a # Barcode sequence to trim from reads.
+mapq=args.m # Minimum MAPQ score allowed
 q=args.q # Minimum quality score to keep during filtering.
 p=args.p # Percentage of bases that must have quality > q during filtering.
 l=args.l +  args.f - 1 # Minimum length of read + 5' adapter
@@ -250,7 +252,7 @@ def runBowtie(processed_reads, repeat_index, trna_index, genome_index):
 print "\nRun mapping to repeat index."  
 (rep_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, tRNAindex, index)
 
-def run_samtools(samfiles):
+def run_samtools(samfiles, mapq):
 	# Usage: Samfile processing (also takes unique mappers only)
 	# Input: Sam files from Bowtie mapping.
 	# Output: Sorted bedFiles.
@@ -267,7 +269,7 @@ def run_samtools(samfiles):
 			logOpen.write("Samtools already done.\n")
 			continue
 			
-		cmd_1 = "cat {} | samtools view -q 42 -Suo - - | samtools sort - {}".format(samfile, bamfile_sort)
+		cmd_1 = "cat {} | samtools view -q {} -Suo - - | samtools sort - {}".format(samfile, mapq, bamfile_sort)
 		cmd_2 = "bamToBed -i {} > {}".format(bamfile_sort + '.bam', bedfile)
 		# cmd_3 = "samtools flagstat {} > {}".format(bamfile_sort + '.bam', bamfile_sort + '_stats.txt')
 		cmd_4 = "rm -f {}".format(samfile)
@@ -282,9 +284,9 @@ def run_samtools(samfiles):
 
 print "\nRun samtools."
 logOpen.write("Run samtools.\n")
-rep_bed = run_samtools(rep_sam)
-trna_bed = run_samtools(trna_sam)
-gen_bed = run_samtools(gen_sam)
+rep_bed = run_samtools(rep_sam, mapq)
+trna_bed = run_samtools(trna_sam, mapq)
+gen_bed = run_samtools(gen_sam, mapq)
 
 def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 	# Usage: Remove repeat regions from bedfile following mapping.
@@ -821,6 +823,40 @@ def extractUTRs(bedIn,fivePUTRBed,threePUTRBed,cdsBed):
 	partitionReadsByUTR(notThreePreads,cdsBed,CDSreads,notCDSreads)
 	return (fivePreads,notFivePreads,CDSreads,notCDSreads,threePreads,notThreePreads)
 
+def read_readspergene_file(data_dict, pos, fn):
+	with open(fn, 'r') as ifile:
+		for line in ifile:
+			[gene, cts] = line.rstrip().split(',')
+			data_dict[gene][pos] = int(cts)
+	return data_dict
+	
+def gene_binding_by_region():
+	fivePfile = outfilepath + '/PlotData_ReadsPerGene_5pUTR'
+	threePfile = outfilepath + '/PlotData_ReadsPerGene_3pUTR'
+	CDSfile = outfilepath + '/PlotData_ReadsPerGene_CDS'
+	allfile = outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
+	
+	gene_to_counts = defaultdict(lambda: [0,0,0,0])  # all, 5P, CDS, 3P
+	if glob.glob(allfile):
+		gene_to_counts = read_readspergene_file(gene_to_counts, 0, allfile)
+	if glob.glob(fivePfile):
+		gene_to_counts = read_readspergene_file(gene_to_counts, 1, fivePfile)
+	if glob.glob(CDSfile):
+		gene_to_counts = read_readspergene_file(gene_to_counts, 2, CDSfile)
+	if glob.glob(threePfile):
+		gene_to_counts = read_readspergene_file(gene_to_counts, 3, threePfile)
+	
+	ofn = outfilepath + '/PlotData_ReadsPerGene_proteinCoding_byRegion'
+	print ofn
+	with open(ofn, 'w') as ofile:
+		writer = csv.writer(ofile)
+		writer.writerow(['Gene', 'All', '5P', 'CDS', '3P', 'Intronic'])
+		for gene in gene_to_counts:
+			row = [gene]
+			row.extend(gene_to_counts[gene])
+			row.append(row[1]-sum(row[2:]))
+			writer.writerow(row)
+	
 print "Intron and UTR analysis."
 logOpen.write("Intron and UTR analysis.\n")
 fivePreads,notFivePreads,CDSreads,notCDSreads,threePreads,notThreePreads=extractUTRs(filteredProteinCodingCenters,fivePUTRBed,threePUTRBed,cdsBed)
@@ -839,7 +875,8 @@ if os.stat(CDSreads).st_size > 0:
 	geneCounts_cds=sortFilteredBed(CDSreads) 
 	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
 	geneCounts_cds.to_csv(outfilepathToSave) 
-
+	
+gene_binding_by_region()
 
 def makeTab(bedGraph,genesFile,sizesFile):
 	program = os.getcwd() + '/bin/bedGraph2tab.pl'
@@ -1517,8 +1554,7 @@ os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads_cleaned_sorted* rawd
 os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads_centerCoord_cleaned_sorted* rawdata")
 os.system("mv *_allreads.mergedRT.bed rawdata")
 os.system("mv clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_cleaned_sorted_UTRs_scaled_cds200_abt0_*.txt rawdata")
-os.system("mv clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed rawdata")
-os.system("mv clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_cleaned_sorted.bed rawdata")
+os.system("mv clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved* rawdata")
 os.system("mv *.mergedRT_CLIP_clusters.bed rawdata")
 os.system("mv *_withDupes_noBlacklist_noRepeat.bed rawdata")
 os.system("mv *_withDupes.bed rawdata")
