@@ -846,7 +846,7 @@ def gene_binding_by_region():
 	if glob.glob(threePfile):
 		gene_to_counts = read_readspergene_file(gene_to_counts, 3, threePfile)
 	
-	ofn = outfilepath + '/PlotData_ReadsPerGene_proteinCoding_byRegion'
+	ofn = outfilepath + '/PlotData_proteinCoding_byRegion'
 	print ofn
 	with open(ofn, 'w') as ofile:
 		writer = csv.writer(ofile)
@@ -1548,6 +1548,7 @@ fig6.savefig(outfilepath+'Figure6.pdf',format='pdf',bbox_inches='tight',dpi=150,
 # Removing things
 os.chdir(outfilepath)
 os.system("mkdir rawdata")
+os.system("mv *_notMappedToTrna.fastq rawdata")
 os.system("mv PlotData_* rawdata")
 os.system("mv clipGenes_proteinCoding rawdata")
 os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads_cleaned_sorted* rawdata")

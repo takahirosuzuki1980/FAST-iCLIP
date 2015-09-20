@@ -21,6 +21,7 @@ group = parser.add_mutually_exclusive_group()
 parser.add_argument('-n', metavar='SAMPLENAME', help="Sample name; name of folder inside results/", required=True)
 group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
 group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
+parser.add_argument('-m', metavar='MAPQ', type=int, help="Minimum MAPQ score allowed. Default is 42.", default=42)
 
 # organism
 args = parser.parse_args()
@@ -40,6 +41,7 @@ else:
 	retro_pos='docs/mm9/retroviral/Mm_retroviralIndex_spaced_positions.txt'
 	retro_genome='docs/mm9/retroviral/Mm_retroviralIndex_spaced.fa'
 
+mapq = args.m
 sampleName=args.n #name of folder
 if not glob.glob("results/" + sampleName):
 	print "Folder %s does not exist. Exiting." %sampleName
@@ -67,12 +69,6 @@ def runBowtie(fastqFiles):
     mappedReads=[]
     unMappedReads=[]
     print "Performing Bowtie..."
-    # Parameters
-    k='1'
-    # In -k mode, Bowtie 2 searches for up to N distinct, valid alignments for each read.
-    # N equals the integer specified with the -k parameter. 
-    # That is, if -k 2 is specified, Bowtie 2 will search for at most 2 distinct alignments
-    # See http://bowtie-bio.sourceforge.net/bowtie2/manual.shtml
     for infastq in fastqFiles:
         print infastq
 
@@ -84,7 +80,7 @@ def runBowtie(fastqFiles):
         print retroIndex
         print "Output file (mapped):"
         print outfile
-        proc = subprocess.Popen([program,'-x',retroIndex,'-k',k,'-U',infastq,'-S',outfile],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        proc = subprocess.Popen([program,'-x',retroIndex,'-U',infastq,'-S',outfile],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out, err = proc.communicate()
         result = out.decode()
         error = err.decode()
@@ -94,12 +90,12 @@ def runBowtie(fastqFiles):
     return mappedReads
 
 # Run Bowtie
-readsForRetroviralmapping=glob.glob(outfilepath+"/rawdata/*_notMappedTorepeat.fastq")
+readsForRetroviralmapping=glob.glob(outfilepath+"/rawdata/*_notMappedToTrna.fastq")
 mappedReads = runBowtie(readsForRetroviralmapping)
 #print readsForRetroviralmapping
 
 
-def runSamtools(samfiles):
+def runSamtools(samfiles, mapq):
     # Useage: Samfile processing.
     # Input: Sam files from Bowtie mapping.
     # Output: Duplicate removed, sorted bedFiles.
@@ -111,7 +107,7 @@ def runSamtools(samfiles):
             
         # Convert to bamfile
         bamfile = samfile.replace('.sam', '.bam')  
-        proc = subprocess.Popen( [program, 'view', '-bS', '-o', bamfile, samfile])
+        proc = subprocess.Popen( [program, 'view', '-q', mapq, '-bS', '-o', bamfile, samfile])
         proc.communicate()
         
         # Sort the bamfile and note that samtools sort adds the .bam handle
@@ -132,7 +128,7 @@ def runSamtools(samfiles):
 # Run Samtools
 mappedReads=glob.glob(outfilepath+"/rawdata/*mappedToRetroviral.sam")
 print "Process mapped data"  
-mappedBedFiles=runSamtools(mappedReads)
+mappedBedFiles=runSamtools(mappedReads, mapq)
 
 def makeRepeatAnnotation():    
     # Repeat index sequence 
