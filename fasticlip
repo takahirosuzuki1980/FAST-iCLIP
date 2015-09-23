@@ -305,7 +305,7 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 			
 		cmd_1 = "bedtools intersect -a {} -b {} -v -sorted > {}".format(bedIn, blacklistregions, no_blacklist)
 		cmd_2 = "bedtools intersect -a {} -b {} -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
-		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s -f 0 > {}".format(no_blacklist, repeatregions, repeat)
+		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s > {}".format(no_blacklist, repeatregions, repeat)
 		print cmd_1
 		os.system(cmd_1)
 		print cmd_2
