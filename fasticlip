@@ -100,7 +100,7 @@ if org == 'human':
 	miRNAmasker=os.getcwd()+'/docs/hg19/miR_sort_clean.bed' # miRNA masker file.
 	fivePUTRBed=os.getcwd()+'/docs/hg19/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
 	threePUTRBed=os.getcwd()+'/docs/hg19/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	cdsBed=os.getcwd()+'/docs/hg19/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	exonBed=os.getcwd()+'/docs/hg19/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
 	utrFile=os.getcwd()+'/docs/hg19/hg19_ensembl_UTR_annotation.txt' # UTR annotation file.
 	genesFile=os.getcwd()+'/docs/hg19/hg19_ensembl_genes.txt' # Gene annotation file.
 	sizesFile=os.getcwd()+'/docs/hg19/hg19.sizes' # Genome sizes file. 
@@ -130,7 +130,7 @@ elif org == 'mouse':
 	miRNAmasker=os.getcwd()+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
 	fivePUTRBed=os.getcwd()+'/docs/mm9/mm9_5pUTR.bed' # UTR annotation file.
 	threePUTRBed=os.getcwd()+'/docs/mm9/mm9_3pUTR.bed' # UTR annotation file. 
-	cdsBed=os.getcwd()+'/docs/mm9/mm9_exons.bed' # UTR annotation file. 
+	exonBed=os.getcwd()+'/docs/mm9/mm9_exons.bed' # UTR annotation file. 
 	utrFile=os.getcwd()+'/docs/mm9/mm9_ensembl_UTR_annotation.txt' # UTR annotation file. 
 	genesFile=os.getcwd()+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
 	sizesFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome sizes file. 
@@ -797,31 +797,30 @@ centerCoordinates=makeClusterCenter(CLIPperOutBed)
 getClusterIntensity(bedGraphCLIPin,centerCoordinates)
 
 
-def partitionReadsByUTR(infile,UTRmask,utrReads,notutrReads):
-	program = 'intersectBed'
-	outfh = open(utrReads,'w')
-	proc = subprocess.Popen([program,'-a',infile,'-b',UTRmask,'-u','-s'],stdout=outfh)
-	proc.communicate()
-	outfh.close()
-	outfh = open(notutrReads,'w')
-	proc = subprocess.Popen([program,'-a',infile,'-b',UTRmask,'-v','-s'],stdout=outfh)
-	proc.communicate()
-	outfh.close()
-
-def extractUTRs(bedIn,fivePUTRBed,threePUTRBed,cdsBed):
-	# Usage: Extract all UTR specific reads from the input file.
-	# Input: .bed file
+def extract_regions(bedIn, fivePUTRBed, threePUTRBed, exonBed):
+	# Usage: Extract all region specific reads from the input file.
+	# Input: .bed files
 	# Output: Mutually exclusive partitions of the input file.
+	
+	exonreads = bedIn.replace('.bed', '_exons.bed')
+	intronreads = bedIn.replace('.bed', '_introns.bed')
+	cmd1 = "bedtools intersect -a {} -b {} -s -u > {}".format(bedIn, exonBed, exonreads)
+	cmd2 = "bedtools intersect -a {} -b {} -s -v > {}".format(bedIn, exonBed, intronreads)
+	print "Exons"; os.system(cmd1)
+	print "Introns"; os.system(cmd2)
+	
 	fivePreads = bedIn.replace('.bed', '_5p.bed')
-	notFivePreads = bedIn.replace('.bed', '_NOT5p.bed')
-	partitionReadsByUTR(bedIn,fivePUTRBed,fivePreads,notFivePreads)
 	threePreads = bedIn.replace('.bed', '_3p.bed')
-	notThreePreads = bedIn.replace('.bed', '_NOT3p.bed')
-	partitionReadsByUTR(notFivePreads,threePUTRBed,threePreads,notThreePreads)
-	CDSreads = bedIn.replace('.bed', '_cds.bed')
-	notCDSreads = bedIn.replace('.bed', '_NOTcds.bed')
-	partitionReadsByUTR(notThreePreads,cdsBed,CDSreads,notCDSreads)
-	return (fivePreads,notFivePreads,CDSreads,notCDSreads,threePreads,notThreePreads)
+	cmd1 = "bedtools intersect -a {} -b {} -s -u > {}".format(exonreads, fivePUTRBed, fivePreads)
+	cmd2 = "bedtools intersect -a {} -b {} -s -u > {}".format(exonreads, threePUTRBed, threePreads)
+	print "5'"; os.system(cmd1)
+	print "3'"; os.system(cmd2)
+	
+	cdsreads = bedIn.replace('.bed', '_cds.bed')
+	cmd1 = "cat {} {} | bedtools intersect -a {} -b stdin -s -v > {}".format(fivePUTRBed, threePUTRBed, exonreads, cdsreads)
+	print "CDS"; os.system(cmd1)
+	
+	return (exonreads, intronreads, fivePreads, threePreads, cdsreads)
 
 def read_readspergene_file(data_dict, pos, fn):
 	with open(fn, 'r') as ifile:
@@ -834,32 +833,37 @@ def gene_binding_by_region():
 	fivePfile = outfilepath + '/PlotData_ReadsPerGene_5pUTR'
 	threePfile = outfilepath + '/PlotData_ReadsPerGene_3pUTR'
 	CDSfile = outfilepath + '/PlotData_ReadsPerGene_CDS'
+	exonfile = outfilepath + '/PlotData_ReadsPerGene_Exons'
+	intronfile = outfilepath + '/PlotData_ReadsPerGene_Introns'
 	allfile = outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
 	
-	gene_to_counts = defaultdict(lambda: [0,0,0,0])  # all, 5P, CDS, 3P
+	gene_to_counts = defaultdict(lambda: [0,0,0,0,0,0])  # all, exon, intron, 5P, CDS, 3P
 	if glob.glob(allfile):
 		gene_to_counts = read_readspergene_file(gene_to_counts, 0, allfile)
+	if glob.glob(exonfile):
+		gene_to_counts = read_readspergene_file(gene_to_counts, 1, exonfile)
+	if glob.glob(intronfile):
+		gene_to_counts = read_readspergene_file(gene_to_counts, 2, intronfile)
 	if glob.glob(fivePfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 1, fivePfile)
+		gene_to_counts = read_readspergene_file(gene_to_counts, 3, fivePfile)
 	if glob.glob(CDSfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 2, CDSfile)
+		gene_to_counts = read_readspergene_file(gene_to_counts, 4, CDSfile)
 	if glob.glob(threePfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 3, threePfile)
+		gene_to_counts = read_readspergene_file(gene_to_counts, 5, threePfile)
 	
 	ofn = outfilepath + '/PlotData_proteinCoding_byRegion'
 	print ofn
 	with open(ofn, 'w') as ofile:
 		writer = csv.writer(ofile)
-		writer.writerow(['Gene', 'All', '5P', 'CDS', '3P', 'Intronic'])
+		writer.writerow(['Gene', 'All', 'Exonic', 'Intronic', '5P', 'CDS', '3P'])
 		for gene in gene_to_counts:
 			row = [gene]
 			row.extend(gene_to_counts[gene])
-			row.append(row[1]-sum(row[2:]))
 			writer.writerow(row)
 	
 print "Intron and UTR analysis."
 logOpen.write("Intron and UTR analysis.\n")
-fivePreads,notFivePreads,CDSreads,notCDSreads,threePreads,notThreePreads=extractUTRs(filteredProteinCodingCenters,fivePUTRBed,threePUTRBed,cdsBed)
+exonreads, intronreads, fivePreads, threePreads, cdsreads = extract_regions(filteredProteinCodingCenters, fivePUTRBed, threePUTRBed, exonBed)
 
 if os.stat(fivePreads).st_size > 0:
 	geneCounts_5p=sortFilteredBed(fivePreads) 
@@ -871,11 +875,21 @@ if os.stat(threePreads).st_size > 0:
 	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_3pUTR'
 	geneCounts_3p.to_csv(outfilepathToSave)
 
-if os.stat(CDSreads).st_size > 0:
-	geneCounts_cds=sortFilteredBed(CDSreads) 
+if os.stat(cdsreads).st_size > 0:
+	geneCounts_cds=sortFilteredBed(cdsreads) 
 	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
 	geneCounts_cds.to_csv(outfilepathToSave) 
-	
+
+if os.stat(exonreads).st_size > 0:
+	geneCounts_5p=sortFilteredBed(exonreads) 
+	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_Exons'
+	geneCounts_5p.to_csv(outfilepathToSave)
+
+if os.stat(intronreads).st_size > 0:
+	geneCounts_3p=sortFilteredBed(intronreads) 
+	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_Introns'
+	geneCounts_3p.to_csv(outfilepathToSave)
+
 gene_binding_by_region()
 
 def makeTab(bedGraph,genesFile,sizesFile):

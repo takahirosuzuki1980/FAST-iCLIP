@@ -248,15 +248,10 @@ clipperClusters=glob.glob(outfilepath+'/rawdata/*threshold*mergedRT_CLIP_cluster
 print "Cluster file to process: %s"%clipperClusters
 
 if not args.window:
-	# Note that we can also read from a custom HOMER read list: SourceData_HOMER_Custom
-	geneLists=['PlotData_ExclusiveBound_5p','PlotData_ExclusiveBound_3p','PlotData_ExclusiveBound_cds','PlotData_ExclusiveBound_Intronic']
-	UTRclusters=[]
-	for geneList in geneLists:
-		path=outfilepath+'/rawdata/'+geneList
-		print "UTR file to process: %s"%path
-		clusters=extractClusters(path,clipperClusters, filter_win)
-		UTRclusters=UTRclusters+[clusters]
-
+	# regions we want to look at
+	UTRclusters = ['5p', '3p', 'cds', 'introns', 'exons']
+	UTRclusters = ["clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_" + x + '.bed' for x in UTRclusters]
+	
 	# - Run HOMER on all clusters  - 
 	proc = subprocess.Popen(["dos2unix",clipperClusters])
 	proc.communicate()
@@ -267,8 +262,8 @@ if not args.window:
 	# shuffledReads=shuffleBedFile(filteredRT)
 	# runHOMER(shuffledReads,lengths,'homer_allReads_shuffle')
 
-	# - Run HOMER on clusters associated with gene lists that show region specific binding - 
-	folderNames=['homer_5pUTR','homer_3pUTR','homer_CDS','homer_intronic']
+	# - Run HOMER on clusters for specific regions - 
+	folderNames=['homer_5pUTR','homer_3pUTR','homer_CDS','homer_intronic','homer_exonic']
 	i=0
 	for clusterFile in UTRclusters:
 		runHOMER(clusterFile,lengths,homer_win,folderNames[i])
