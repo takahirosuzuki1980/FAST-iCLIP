@@ -19,6 +19,7 @@ csv.register_dialect("textdialect", delimiter='\t')
 parser = argparse.ArgumentParser(description="motifAnalysis.py: use this to look for motifs in CLIP data", epilog="Example: python motifAnalysis.py -n ddx3wt --hg19 -l 12,14 -f 15 -m 25")
 group = parser.add_mutually_exclusive_group()
 parser.add_argument('-n', metavar='SAMPLENAME', help="Sample name; name of folder inside results/", required=True)
+parser.add_argument('-p', metavar='PREFIX', help="Prefix for folders where motifs will be stored", default="homer")
 group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
 group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
 parser.add_argument('-l', metavar='LENGTHS', help="Length(s) of motifs desired; separated by a ','. Default is '6,8,10,12'.", default="6,8,10,12")
@@ -263,7 +264,7 @@ if not args.window:
 	# runHOMER(shuffledReads,lengths,'homer_allReads_shuffle')
 
 	# - Run HOMER on clusters for specific regions - 
-	folderNames=['homer_5pUTR','homer_3pUTR','homer_CDS','homer_intronic','homer_exonic']
+	folderNames = [args.p + '_' + x for x in UTRclusters]
 	i=0
 	for clusterFile in UTRclusters:
 		runHOMER(clusterFile,lengths,homer_win,folderNames[i])

@@ -305,7 +305,7 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 			
 		cmd_1 = "bedtools intersect -a {} -b {} -v -sorted > {}".format(bedIn, blacklistregions, no_blacklist)
 		cmd_2 = "bedtools intersect -a {} -b {} -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
-		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s > {}".format(no_blacklist, repeatregions, repeat)
+		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s -f 0 > {}".format(no_blacklist, repeatregions, repeat)
 		print cmd_1
 		os.system(cmd_1)
 		print cmd_2
@@ -1462,71 +1462,74 @@ print "Making Figure 5"
 logOpen.write("Making Figure 5\n")
 print "snoRNA gene body analysis."
 logOpen.write("snoRNA gene body analysis.\n")
-bf_sno=pd.read_table(outfilepath+"clipGenes_snoRNA_LowFDRreads.bed",header=None)
-bf_sno.columns=['Chr','Start','End','CLIPper_name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
-snoTypes=pd.DataFrame(bf_sno.groupby('Type').size())
-snoTypes.columns=['Reads']
-snoTypes['Fraction']=snoTypes['Reads']/sum(snoTypes['Reads'])
-outfilepathToSave=outfilepath+'/PlotData_readsPerSnoRNAType'
-snoTypes.to_csv(outfilepathToSave)
+snorna_file = outfilepath+"clipGenes_snoRNA_LowFDRreads.bed"
 
-snoTypesAndGenes=pd.DataFrame(bf_sno.groupby(['Type','name_snoRNA']).size())
-snoTypesAndGenes.columns=['Count_per_gene']
-outfilepathToSave=outfilepath+'/PlotData_geneStatsPerSnoRNAType'
-snoTypesAndGenes.to_csv(outfilepathToSave)
-	  
-fig5=plt.figure(5)
-ax=plt.subplot(2,2,1)
-pie_wedges=ax.pie(snoTypes['Fraction'],labels=snoTypes.index,labeldistance=1.1,autopct='%1.1f%%')
-plt.rcParams['font.size']=5
-for wedge in pie_wedges[0]:
-	wedge.set_edgecolor('black')
-	wedge.set_lw(1)
+if os.stat(snorna_file).st_size > 0:
+	bf_sno=pd.read_table(snorna_file,header=None)
+	bf_sno.columns=['Chr','Start','End','CLIPper_name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
+	snoTypes=pd.DataFrame(bf_sno.groupby('Type').size())
+	snoTypes.columns=['Reads']
+	snoTypes['Fraction']=snoTypes['Reads']/sum(snoTypes['Reads'])
+	outfilepathToSave=outfilepath+'/PlotData_readsPerSnoRNAType'
+	snoTypes.to_csv(outfilepathToSave)
 
-i=2
-for sType in set(bf_sno['Type']):
-	type_specific=bf_sno[bf_sno['Type']==sType]
-	sno_profile=getBindingFrac(type_specific)
-	
-	if sType=='C':
-		title="C/D_box"
-	elif sType=='H':
-		title="H/ACA_box"
-	else:
-		title="scaRNA"
-	
-	outfilepathToSave=outfilepath+'/PlotData_snoRNAReadDist_%s'%sType
-	sno_profile.to_csv(outfilepathToSave)
-	
-	plt.subplot(2,2,i)
-	bins=np.arange(0,1,0.01)
-	hist,bins=np.histogram(sno_profile['frac'],bins=bins)
-	hist=np.array(hist/float(sno_profile['frac'].shape[0]),dtype=float)
-	width=0.7*(bins[1]-bins[0])
-	center=(bins[:-1] + bins[1:])/2
-	plt.bar(center,hist,align='center',width=width,color='blue',alpha=0.75)
-	plt.tick_params(axis='x',labelsize=5) 
-	plt.tick_params(axis='y',labelsize=5)  
-	plt.xlabel('Fraction of gene body (5p - 3p)',fontsize=5)
-	plt.title('Binding profile for %s'%title,fontsize=5)
-	i+=1
+	snoTypesAndGenes=pd.DataFrame(bf_sno.groupby(['Type','name_snoRNA']).size())
+	snoTypesAndGenes.columns=['Count_per_gene']
+	outfilepathToSave=outfilepath+'/PlotData_geneStatsPerSnoRNAType'
+	snoTypesAndGenes.to_csv(outfilepathToSave)
+		  
+	fig5=plt.figure(5)
+	ax=plt.subplot(2,2,1)
+	pie_wedges=ax.pie(snoTypes['Fraction'],labels=snoTypes.index,labeldistance=1.1,autopct='%1.1f%%')
+	plt.rcParams['font.size']=5
+	for wedge in pie_wedges[0]:
+		wedge.set_edgecolor('black')
+		wedge.set_lw(1)
 
-fig5.tight_layout()
-fig5.savefig(outfilepath+'Figure5.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-fig5.savefig(outfilepath+'Figure5.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	i=2
+	for sType in set(bf_sno['Type']):
+		type_specific=bf_sno[bf_sno['Type']==sType]
+		sno_profile=getBindingFrac(type_specific)
+		
+		if sType=='C':
+			title="C/D_box"
+		elif sType=='H':
+			title="H/ACA_box"
+		else:
+			title="scaRNA"
+		
+		outfilepathToSave=outfilepath+'/PlotData_snoRNAReadDist_%s'%sType
+		sno_profile.to_csv(outfilepathToSave)
+		
+		plt.subplot(2,2,i)
+		bins=np.arange(0,1,0.01)
+		hist,bins=np.histogram(sno_profile['frac'],bins=bins)
+		hist=np.array(hist/float(sno_profile['frac'].shape[0]),dtype=float)
+		width=0.7*(bins[1]-bins[0])
+		center=(bins[:-1] + bins[1:])/2
+		plt.bar(center,hist,align='center',width=width,color='blue',alpha=0.75)
+		plt.tick_params(axis='x',labelsize=5) 
+		plt.tick_params(axis='y',labelsize=5)  
+		plt.xlabel('Fraction of gene body (5p - 3p)',fontsize=5)
+		plt.title('Binding profile for %s'%title,fontsize=5)
+		i+=1
+
+	fig5.tight_layout()
+	fig5.savefig(outfilepath+'Figure5.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig5.savefig(outfilepath+'Figure5.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
 
-def getncRNABindingFrac(type_specific):
-	# 5' position on the negative strand is snoRNA stop coordinate.
-	neg_data=type_specific[type_specific['Strand']=='-']
-	neg_data['diff']=np.abs(neg_data['Gene End (bp)']-neg_data['RT_stop']) 
-	neg_data['frac']=neg_data['diff']/(neg_data['Gene End (bp)']-neg_data['Gene Start (bp)'])
-	# 5' position on the positive strand is snoRNA start coordinate.
-	pos_data=type_specific[type_specific['Strand']=='+']
-	pos_data['diff']=np.abs(pos_data['Gene Start (bp)']-pos_data['RT_stop'])
-	pos_data['frac']=pos_data['diff']/(pos_data['Gene End (bp)']-pos_data['Gene Start (bp)'])
-	DF_ncRNAProfile=pd.concat([neg_data,pos_data])
-	return DF_ncRNAProfile
+	def getncRNABindingFrac(type_specific):
+		# 5' position on the negative strand is snoRNA stop coordinate.
+		neg_data=type_specific[type_specific['Strand']=='-']
+		neg_data['diff']=np.abs(neg_data['Gene End (bp)']-neg_data['RT_stop']) 
+		neg_data['frac']=neg_data['diff']/(neg_data['Gene End (bp)']-neg_data['Gene Start (bp)'])
+		# 5' position on the positive strand is snoRNA start coordinate.
+		pos_data=type_specific[type_specific['Strand']=='+']
+		pos_data['diff']=np.abs(pos_data['Gene Start (bp)']-pos_data['RT_stop'])
+		pos_data['frac']=pos_data['diff']/(pos_data['Gene End (bp)']-pos_data['Gene Start (bp)'])
+		DF_ncRNAProfile=pd.concat([neg_data,pos_data])
+		return DF_ncRNAProfile
 
 	
 print "Making Figure 6"
