@@ -153,6 +153,10 @@ def runHOMER(inBed,lengths,homer_win,outDirName):
 	# Get the path of the input file 
 	path,filename=os.path.split(inBedForHOMER)
 	outDir=path+'/'+outDirName
+	
+	# print path, filename
+	# return
+
 	# Call HOMER, which will generate a directory of files
 	proc = subprocess.Popen([program,inBedForHOMER,org,outDir,'-rna','-bg',homerReferenceFile, '-len', lengths, '-S', '10'])
 	proc.communicate()
@@ -250,24 +254,24 @@ print "Cluster file to process: %s"%clipperClusters
 
 if not args.window:
 	# regions we want to look at
-	UTRclusters = ['5p', '3p', 'cds', 'introns', 'exons']
-	UTRclusters = ["clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_" + x + '.bed' for x in UTRclusters]
+	UTRcluster_names = ['5p', '3p', 'cds', 'introns', 'exons']
+	UTRclusters = ["clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_" + x + '.bed' for x in UTRcluster_names]
 	
 	# - Run HOMER on all clusters  - 
 	proc = subprocess.Popen(["dos2unix",clipperClusters])
-	proc.communicate()
+	# proc.communicate()
 	filteredRT = clipperClusters[:-4]+"rtstops_summits.bed"
 	proc = subprocess.Popen(["perl","filterSummit.pl",clipperClusters, filteredRT, str(filter_win)])
-	proc.communicate()
+	# proc.communicate()
 	runHOMER(filteredRT,lengths,homer_win,'homer_allReads')
 	# shuffledReads=shuffleBedFile(filteredRT)
 	# runHOMER(shuffledReads,lengths,'homer_allReads_shuffle')
 
 	# - Run HOMER on clusters for specific regions - 
-	folderNames = [args.p + '_' + x for x in UTRclusters]
+	folderNames = [args.p + '_' + x for x in UTRcluster_names]
 	i=0
 	for clusterFile in UTRclusters:
-		runHOMER(clusterFile,lengths,homer_win,folderNames[i])
+		runHOMER(outfilepath + '/rawdata/' + clusterFile,lengths,homer_win,folderNames[i])
 		i+=1
 else:
 	# Input: Extract all reads in the region of interest
