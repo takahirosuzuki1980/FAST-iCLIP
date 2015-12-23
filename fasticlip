@@ -171,7 +171,8 @@ logOpen.write("Minimum quality score (q):%s\n"%q)
 logOpen.write("Percentage of bases with > q:%s\n"%p)
 logOpen.write("5' bases to trim:%s\n'"%iCLIP5pBasesToTrim)
 logOpen.write("k distinct, valid alignments for each read in bt2 mapping:%s\n"%k)
-logOpen.write("Threshold for minimum number of RT stops:%s\n"%threshold)
+logOpen.write("Threshold for minimum number of RT stops (repeat): %s samples with >= %s RT stops\n"%(minpass_rep, threshold_rep))
+logOpen.write("Threshold for minimum number of RT stops (nonrepeat): %s samples with >= %s RT stops\n"%(minpass_nr, threshold_nr))
 logOpen.write("Bases for expansion around conserved RT stops:%s\n"%expand)
 logOpen.write("\n\n\n")
 
@@ -259,7 +260,7 @@ def runBowtie(processed_reads, repeat_index, trna_index, genome_index):
 		trna_sam.append(trna_mapped)
 		genome_sam.append(genome_mapped)
 
-		if glob.glob(genome_mapped + '_stats.txt'):
+		if glob.glob(genome_mapped):
 			print "Bowtie already done."
 			logOpen.write("Bowtie already done.\n")
 			continue
@@ -292,16 +293,10 @@ def run_samtools(samfiles, mapq):
 	for samfile in samfiles:
 		bamfile_sort = samfile.replace('.sam','_sorted') 
 		bedfile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
-		
 		out_bedfiles.append(bedfile)
-		if glob.glob(bedfile):
-			print "Samtools already done."
-			logOpen.write("Samtools already done.\n")
-			continue
 			
 		cmd_1 = "cat {} | samtools view -q {} -Suo - - | samtools sort - {}".format(samfile, mapq, bamfile_sort)
 		cmd_2 = "bamToBed -i {} > {}".format(bamfile_sort + '.bam', bedfile)
-		cmd_4 = "rm -f {}".format(samfile)
 		print cmd_1
 		os.system(cmd_1)
 		print cmd_2
@@ -325,10 +320,6 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 		no_blacklist = bedIn.replace('.bed', '_noBlacklist.bed')
 		no_repeat = bedIn.replace('.bed', '_noRepeat.bed')
 		repeat = bedIn.replace('.bed', '_repeat.bed')
-		if glob.glob(no_repeat) and glob.glob(repeat): 
-			print "Repeat masking already done."
-			logOpen.write("Repeat masking already done.\n")
-			continue
 			
 		cmd_1 = "bedtools intersect -a {} -b {} -v -sorted > {}".format(bedIn, blacklistregions, no_blacklist)
 		cmd_2 = "bedtools intersect -a {} -b {} -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
@@ -358,7 +349,6 @@ def separateStrands(mappedReads):
 			pos_strand=mapFile.replace('.bed','_pos.bed')
 			negativeStrand=negativeStrand+[neg_strand]
 			positiveStrand=positiveStrand+[pos_strand]
-			if glob.glob(neg_strand) and glob.glob(pos_strand): continue
 				
 			neg = open(neg_strand, 'w')
 			pos = open(pos_strand, 'w')
@@ -377,7 +367,6 @@ def modifyNegativeStrand(negativeStrandReads):
 	for negativeRead in negativeStrandReads:
 		neg_strand_edited=negativeRead.replace('_neg.bed','_negEdit.bed')
 		negativeStrandEdit=negativeStrandEdit+[neg_strand_edited]
-		if glob.glob(neg_strand_edited): continue
 		
 		neg_edit = open(neg_strand_edited, 'w')
 		with open(negativeRead, 'r') as infile:
@@ -395,19 +384,12 @@ def isolate5prime(strandedReads):
 		RTstop=reads.replace('.bed','_RTstop.bed')
 		with open(reads, 'r') as infile:
 			RTstops=RTstops+[RTstop]
-			if glob.glob(RTstop): continue
 			
 			f = open(RTstop, 'w')
 			for line in infile:	
 				chrom,start,end,name,quality,strand=line.strip().split('\t')
 				f.write('\t'.join((chrom,start,strand))+'\n')
 	return RTstops
-
-print "\nRT stop isolation (repeat)."
-logOpen.write("RT stop isolation (repeat).\n")
-readsByStrand_rep=separateStrands(rep_bed)
-negativeRTstop_rep=isolate5prime(modifyNegativeStrand(readsByStrand_rep[0])) 
-positiveRTstop_rep=isolate5prime(readsByStrand_rep[1]) 
 
 def fileCat(destinationFile,fileList):
 	f = open(destinationFile, "w")
@@ -437,10 +419,11 @@ def mergeRT(RTstopFiles, outfilename, minpass, threshold, expand, strand):
 	cts = [RTcounts(fn) for fn in RTstopFiles]
 	m = pd.concat(cts, axis=1, join='inner')
 	m['numpass'] = m.apply(lambda x: countPassed(x, threshold), axis=1)
-	m_filter = m[m['numpass'] >= minpass]
-	m_filter['sum'] = m_filter.apply(sum, axis=1)
-	m_filter['mean'] = m_filter.apply(np.mean, axis=1)
-	m_filter['stdev'] = m_filter.apply(np.std, axis=1)
+	m = m[m['numpass'] >= minpass]
+	m_filter = m.copy(deep=True)
+	m_filter['sum'] = m.apply(sum, axis=1)
+	m_filter['mean'] = m.apply(np.mean, axis=1)
+	m_filter['stdev'] = m.apply(np.std, axis=1)
 	
 	f = open(outfilename, 'w')
 	for i in m_filter.index:
@@ -450,545 +433,539 @@ def mergeRT(RTstopFiles, outfilename, minpass, threshold, expand, strand):
 		mean = m_filter.loc[i, 'mean']
 		stdev = m_filter.loc[i, 'stdev']
 		if RT > expand:
-			read = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand, mean, stdev))+'\n'
+			read = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand))+'\n'
 		else:
-			read = '\t'.join((chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand, mean, stdev))+'\n'
+			read = '\t'.join((chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand))+'\n'
 		f.write(read*(count))
 
-print "Merge RT stops."
-logOpen.write("Merge RT stops.\n")
+print "\nRepeat RT stop isolation."
+logOpen.write("Repeat RT stop isolation.\n")
+readsByStrand_rep=separateStrands(rep_bed)
+negativeRTstop_rep=isolate5prime(modifyNegativeStrand(readsByStrand_rep[0])) 
+positiveRTstop_rep=isolate5prime(readsByStrand_rep[1]) 
+
+print "Merge Repeat RT stops."
+logOpen.write("Merge Repeat RT stops.\n")
 posMerged = outfilepath+sampleName+'_repeat_positivereads.mergedRT'
 negMerged = outfilepath+sampleName+'_repeat_negativereads.mergedRT'
 negAndPosMerged = outfilepath+sampleName+'_threshold=%s'%threshold_rep+'_repeat_allreads.mergedRT.bed'
+mergeRT(positiveRTstop_rep, posMerged, minpass_rep, threshold_rep, expand, '+')
+mergeRT(negativeRTstop_rep, negMerged, minpass_rep, threshold_rep, expand, '-')
+fileCat(negAndPosMerged, [posMerged, negMerged])
 
-if glob.glob(negAndPosMerged):
-	print "RT stops already merged."
-	logOpen.write("RT stops already merged.\n")
-else:
-	mergeRT(positiveRTstop_rep, posMerged, minpass_rep, threshold_rep, expand, '+')
-	mergeRT(negativeRTstop_rep, negMerged, minpass_rep, threshold_rep, expand, '-')
-	fileCat(negAndPosMerged, [posMerged, negMerged])
-	
-
-
-print "RT stop isolation."
-logOpen.write("RT stop isolation.\n")
+print "Nonrepeat RT stop isolation."
+logOpen.write("Nonrepeat RT stop isolation.\n")
 readsByStrand = separateStrands(gen_norepeat_bed)
 negativeRTstop = isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
 positiveRTstop = isolate5prime(readsByStrand[1]) 
 
-print "Merge RT stops."
-logOpen.write("Merge RT stops.\n")
+print "Merge Nonrepeat RT stops."
+logOpen.write("Merge Nonrepeat RT stops.\n")
 posMerged = outfilepath+sampleName+'_%s_positivereads.mergedRT'%index_tag
 negMerged = outfilepath+sampleName+'_%s_negativereads.mergedRT'%index_tag
-negAndPosMerged = outfilepath+sampleName+'_threshold=%s'%threshold+'_%s_allreads.mergedRT.bed'%index_tag
-
-if glob.glob(negAndPosMerged):
-	print "RT stops already merged."
-	logOpen.write("RT stops already merged.\n")
-else:
-	mergeRT(positiveRTstop, posMerged, minpass_nr, threshold_nr, expand, '+')
-	mergeRT(negativeRTstop, negMerged, minpass_nr, threshold_nr, expand, '-')
-	fileCat(negAndPosMerged,[posMerged,negMerged])
+negAndPosMerged = outfilepath+sampleName+'_threshold=%s'%threshold_nr+'_%s_allreads.mergedRT.bed'%index_tag
+mergeRT(positiveRTstop, posMerged, minpass_nr, threshold_nr, expand, '+')
+mergeRT(negativeRTstop, negMerged, minpass_nr, threshold_nr, expand, '-')
+fileCat(negAndPosMerged,[posMerged,negMerged])
 
 
-def runCLIPPER(RTclusterfile,genome,genomeFile):
-	# Useage: Process the mergedRT file and pass through CLIPper FDR script.
-	# Input: Merged RT file.
-	# Output: CLIPper input (.bed) file and output file.
-	program='bedToBam'
-	program2='samtools'
-	program3='bamToBed'
-	program4='clipper'
+# def runCLIPPER(RTclusterfile,genome,genomeFile):
+	# # Useage: Process the mergedRT file and pass through CLIPper FDR script.
+	# # Input: Merged RT file.
+	# # Output: CLIPper input (.bed) file and output file.
+	# program='bedToBam'
+	# program2='samtools'
+	# program3='bamToBed'
+	# program4='clipper'
 	
-	bamfile=RTclusterfile.replace('.bed','.bam')  
-	outfh=open(bamfile, 'w')
-	proc=subprocess.Popen([program,'-i',RTclusterfile,'-g',genomeFile],stdout=outfh)
-	proc.communicate()
+	# bamfile=RTclusterfile.replace('.bed','.bam')  
+	# outfh=open(bamfile, 'w')
+	# proc=subprocess.Popen([program,'-i',RTclusterfile,'-g',genomeFile],stdout=outfh)
+	# proc.communicate()
 	
-	bamfile_sort=bamfile.replace('.bam','.srt')
-	proc2=subprocess.Popen([program2,'sort',bamfile,bamfile_sort])
-	proc2.communicate()
+	# bamfile_sort=bamfile.replace('.bam','.srt')
+	# proc2=subprocess.Popen([program2,'sort',bamfile,bamfile_sort])
+	# proc2.communicate()
 	
-	bamfile_sorted=bamfile_sort+'.bam'
-	mapStats=bamfile_sorted.replace('.srt.bam','.mapStats.txt') 
-	outfh=open(mapStats, 'w')
-	proc3=subprocess.Popen([program2,'flagstat',bamfile_sorted],stdout=outfh)
-	proc3.communicate()
+	# bamfile_sorted=bamfile_sort+'.bam'
+	# mapStats=bamfile_sorted.replace('.srt.bam','.mapStats.txt') 
+	# outfh=open(mapStats, 'w')
+	# proc3=subprocess.Popen([program2,'flagstat',bamfile_sorted],stdout=outfh)
+	# proc3.communicate()
 	
-	proc4=subprocess.Popen([program2,'index',bamfile_sorted])
-	proc4.communicate()
+	# proc4=subprocess.Popen([program2,'index',bamfile_sorted])
+	# proc4.communicate()
 	
-	CLIPPERin=bamfile_sorted.replace('.srt.bam','_CLIPPERin.bed') 
-	outfh=open(CLIPPERin, 'w')
-	proc5=subprocess.Popen([program3,'-i',bamfile_sorted],stdout=outfh)
-	proc5.communicate()
+	# CLIPPERin=bamfile_sorted.replace('.srt.bam','_CLIPPERin.bed') 
+	# outfh=open(CLIPPERin, 'w')
+	# proc5=subprocess.Popen([program3,'-i',bamfile_sorted],stdout=outfh)
+	# proc5.communicate()
 	
-	CLIPPERout_dup=CLIPPERin.replace('_CLIPPERin.bed','_CLIP_clusters_dupl') 
-	proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout_dup],)
-	proc6.communicate()
-	outfh.close()
+	# CLIPPERout_dup=CLIPPERin.replace('_CLIPPERin.bed','_CLIP_clusters_dupl') 
+	# proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout_dup],)
+	# proc6.communicate()
+	# outfh.close()
 	
-	# added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
-	CLIPPERout=CLIPPERout_dup.replace('_CLIP_clusters_dupl','_CLIP_clusters') 
-	ifile = open(CLIPPERout_dup,'r')
-	reader = csv.reader(ifile, 'textdialect')
-	ofile = open(CLIPPERout,'w')
-	writer = csv.writer(ofile, 'textdialect')
-	currRow = ['chr1',0,0,0,0,'+']
-	for row in reader:
-		currStart = int(currRow[1])
-		currEnd = int(currRow[2])
-		newStart = int(row[1])
-		newEnd = int(row[2])
-		if currStart==newStart and currEnd==newEnd: continue #duplicates
-		if math.fabs(newStart-currEnd) <= 15 and currRow[5]==row[5]: #overlap and same strand
-			if int(currRow[1]) != 0: #not the first one
-				currRow[2]=newEnd #merge the two adjacent clusters
-		else: #not overlap
-			if int(currRow[1]) != 0:
-				writer.writerow(currRow)
-			currRow = row #cycle continues
-	writer.writerow(currRow) #fencepost
+	# # added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
+	# CLIPPERout=CLIPPERout_dup.replace('_CLIP_clusters_dupl','_CLIP_clusters') 
+	# ifile = open(CLIPPERout_dup,'r')
+	# reader = csv.reader(ifile, 'textdialect')
+	# ofile = open(CLIPPERout,'w')
+	# writer = csv.writer(ofile, 'textdialect')
+	# currRow = ['chr1',0,0,0,0,'+']
+	# for row in reader:
+		# currStart = int(currRow[1])
+		# currEnd = int(currRow[2])
+		# newStart = int(row[1])
+		# newEnd = int(row[2])
+		# if currStart==newStart and currEnd==newEnd: continue #duplicates
+		# if math.fabs(newStart-currEnd) <= 15 and currRow[5]==row[5]: #overlap and same strand
+			# if int(currRow[1]) != 0: #not the first one
+				# currRow[2]=newEnd #merge the two adjacent clusters
+		# else: #not overlap
+			# if int(currRow[1]) != 0:
+				# writer.writerow(currRow)
+			# currRow = row #cycle continues
+	# writer.writerow(currRow) #fencepost
 	
-	ifile.close()
-	ofile.close()	
+	# ifile.close()
+	# ofile.close()	
 	
-	return (CLIPPERin,CLIPPERout)
+	# return (CLIPPERin,CLIPPERout)
 
-def modCLIPPERout(CLIPPERin,CLIPPERout):
-	# Usage: Process the CLIPper output and isolate lowFDR reads based upon CLIPper windows.
-	# Input: .bed file passed into CLIPper and the CLIPper windows file.
-	# Output: Low FDR reads recovered using the CLIPer windows file, genes per cluster, gene list of CLIPper clusters, and CLIPper windows as .bed.
-	program='intersectBed'
-	CLIPperOutBed=CLIPPERout+'.bed'
-	CLIPpeReadsPerCluster=CLIPPERout+'.readsPerCluster'
-	CLIPpeGeneList=CLIPPERout+'.geneNames'
-	f = open(CLIPperOutBed,'w')
-	g = open(CLIPpeReadsPerCluster,'w')
-	h = open(CLIPpeGeneList,'w')
-	with open(CLIPPERout,'r') as infile:
-		for line in infile:	
-			try:
-				# *** Old CLIPper includes a header that cannot be parsed. Handle this. ***
-				# *** Old CLIPper: Ensembl genes are parsed with <name>_<cluster>_<count>. ***
-				chrom,start,end,name,stats,strand,start_2,end_2 = line.strip().split('\t')
-				readPerCluster=name.strip().split('_')[2]
-				geneName=name.strip().split('_')[0].split('.')[0]
-				f.write('\t'.join((chrom,start,end,name,stats,strand))+'\n')
-				g.write((readPerCluster+'\n'))
-				h.write((geneName+'\n'))
-			except:
-				print ""
-	f.close()
-	g.close()
-	h.close()
-	CLIPPERlowFDR=CLIPperOutBed.replace('.bed','_lowFDRreads.bed')
-	outfh=open(CLIPPERlowFDR,'w')
-	# Intersect input reads with the CLIPper windows and report full result for both.
-	proc=subprocess.Popen([program,'-a',CLIPPERin,'-b',CLIPperOutBed,'-wa','-wb','-s'],stdout=outfh)
-	proc.communicate()
-	outfh.close()
-	return (CLIPPERlowFDR,CLIPpeReadsPerCluster,CLIPpeGeneList,CLIPperOutBed)
+# def modCLIPPERout(CLIPPERin,CLIPPERout):
+	# # Usage: Process the CLIPper output and isolate lowFDR reads based upon CLIPper windows.
+	# # Input: .bed file passed into CLIPper and the CLIPper windows file.
+	# # Output: Low FDR reads recovered using the CLIPer windows file, genes per cluster, gene list of CLIPper clusters, and CLIPper windows as .bed.
+	# program='intersectBed'
+	# CLIPperOutBed=CLIPPERout+'.bed'
+	# CLIPpeReadsPerCluster=CLIPPERout+'.readsPerCluster'
+	# CLIPpeGeneList=CLIPPERout+'.geneNames'
+	# f = open(CLIPperOutBed,'w')
+	# g = open(CLIPpeReadsPerCluster,'w')
+	# h = open(CLIPpeGeneList,'w')
+	# with open(CLIPPERout,'r') as infile:
+		# for line in infile:	
+			# try:
+				# # *** Old CLIPper includes a header that cannot be parsed. Handle this. ***
+				# # *** Old CLIPper: Ensembl genes are parsed with <name>_<cluster>_<count>. ***
+				# chrom,start,end,name,stats,strand,start_2,end_2 = line.strip().split('\t')
+				# readPerCluster=name.strip().split('_')[2]
+				# geneName=name.strip().split('_')[0].split('.')[0]
+				# f.write('\t'.join((chrom,start,end,name,stats,strand))+'\n')
+				# g.write((readPerCluster+'\n'))
+				# h.write((geneName+'\n'))
+			# except:
+				# print ""
+	# f.close()
+	# g.close()
+	# h.close()
+	# CLIPPERlowFDR=CLIPperOutBed.replace('.bed','_lowFDRreads.bed')
+	# outfh=open(CLIPPERlowFDR,'w')
+	# # Intersect input reads with the CLIPper windows and report full result for both.
+	# proc=subprocess.Popen([program,'-a',CLIPPERin,'-b',CLIPperOutBed,'-wa','-wb','-s'],stdout=outfh)
+	# proc.communicate()
+	# outfh.close()
+	# return (CLIPPERlowFDR,CLIPpeReadsPerCluster,CLIPpeGeneList,CLIPperOutBed)
 
-print "Run CLIPper."
-logOpen.write("Run CLIPper.\n")
+# print "Run CLIPper."
+# logOpen.write("Run CLIPper.\n")
 
-CLIPPERio=runCLIPPER(negAndPosMerged,genomeForCLIPper,genomeFile)
-CLIPPERin=CLIPPERio[0]
-CLIPPERout=CLIPPERio[1]
-clipperStats=modCLIPPERout(CLIPPERin,CLIPPERout)
-CLIPPERlowFDR=clipperStats[0] # Low FDR reads returned filtered through CLIPper windows
-CLIPpeReadsPerCluster=clipperStats[1] # Number of reads per CLIPper cluster
-CLIPpeGeneList=clipperStats[2] # Gene names returned from the CLIPper file
-CLIPperOutBed=clipperStats[3] # CLIPper windows as a bed file
+# CLIPPERio=runCLIPPER(negAndPosMerged,genomeForCLIPper,genomeFile)
+# CLIPPERin=CLIPPERio[0]
+# CLIPPERout=CLIPPERio[1]
+# clipperStats=modCLIPPERout(CLIPPERin,CLIPPERout)
+# CLIPPERlowFDR=clipperStats[0] # Low FDR reads returned filtered through CLIPper windows
+# CLIPpeReadsPerCluster=clipperStats[1] # Number of reads per CLIPper cluster
+# CLIPpeGeneList=clipperStats[2] # Gene names returned from the CLIPper file
+# CLIPperOutBed=clipperStats[3] # CLIPper windows as a bed file
 
-def getBedCenterPoints(inBed):
-	# Usage: Obtain center coordinates of bedFile.
-	# Input: BedFile.
-	# Output: Center coordinates returned.
-	outBed=inBed.replace('.bed','_centerCoord.bed')	
-	f=open(outBed, 'w')
-	with open(inBed, 'r') as infile:
-		for line in infile:	
-			elementList=line.strip().split('\t')
-			f.write('\t'.join((elementList[0],str(int(elementList[1])+expand),str(int(elementList[1])+expand+1),elementList[9],elementList[4],elementList[5],'\n')))
-	f.close()
-	return outBed
+# def getBedCenterPoints(inBed):
+	# # Usage: Obtain center coordinates of bedFile.
+	# # Input: BedFile.
+	# # Output: Center coordinates returned.
+	# outBed=inBed.replace('.bed','_centerCoord.bed')	
+	# f=open(outBed, 'w')
+	# with open(inBed, 'r') as infile:
+		# for line in infile:	
+			# elementList=line.strip().split('\t')
+			# f.write('\t'.join((elementList[0],str(int(elementList[1])+expand),str(int(elementList[1])+expand+1),elementList[9],elementList[4],elementList[5],'\n')))
+	# f.close()
+	# return outBed
 
-def cleanBedFile(inBed):
-	# Usage: Sort and recover only first 6 fields from a bed file.
-	# Input: BedFile.
-	# Output: Sorted bedFile with correct number of fields.
-	program='sortBed'
-	CLIPperOutBed=inBed.replace('.bed','_cleaned.bed')	
-	sortedBed=CLIPperOutBed.replace('_cleaned.bed','_cleaned_sorted.bed')
-	f=open(CLIPperOutBed, 'w')
-	with open(inBed, 'r') as infile:
-		for line in infile:	
-			elementList=line.strip().split('\t')
-			f.write('\t'.join((elementList[0],elementList[1],elementList[2],elementList[3],elementList[4],elementList[5],'\n')))
-	f.close()
-	outfh=open(sortedBed, 'w')
-	proc=subprocess.Popen([program, '-i', CLIPperOutBed],stdout=outfh)
-	proc.communicate()
-	outfh.close()
-	return sortedBed
+# def cleanBedFile(inBed):
+	# # Usage: Sort and recover only first 6 fields from a bed file.
+	# # Input: BedFile.
+	# # Output: Sorted bedFile with correct number of fields.
+	# program='sortBed'
+	# CLIPperOutBed=inBed.replace('.bed','_cleaned.bed')	
+	# sortedBed=CLIPperOutBed.replace('_cleaned.bed','_cleaned_sorted.bed')
+	# f=open(CLIPperOutBed, 'w')
+	# with open(inBed, 'r') as infile:
+		# for line in infile:	
+			# elementList=line.strip().split('\t')
+			# f.write('\t'.join((elementList[0],elementList[1],elementList[2],elementList[3],elementList[4],elementList[5],'\n')))
+	# f.close()
+	# outfh=open(sortedBed, 'w')
+	# proc=subprocess.Popen([program, '-i', CLIPperOutBed],stdout=outfh)
+	# proc.communicate()
+	# outfh.close()
+	# return sortedBed
 
-def makeBedGraph(lowFDRreads,sizesFile):
-	# Usage: From a bedFile, generate a bedGraph and bigWig.
-	# Input: BedFile.
-	# Output: BedGraph file.
-	program='genomeCoverageBed'
-	program2=os.getcwd() + '/bin/bedGraphToBigWig'
-	cleanBed=cleanBedFile(lowFDRreads)
-	outname=cleanBed.replace('.bed','.bedgraph')
-	outname2=cleanBed.replace('.bed','.bw')
-	outfh=open(outname,'w')
-	proc=subprocess.Popen([program,'-bg','-split','-i',cleanBed,'-g',sizesFile],stdout=outfh)
-	proc.communicate()
-	outfh2=open(outname2,'w')
-	proc2=subprocess.Popen([program2,outname,sizesFile,outname2],stdout=subprocess.PIPE)
-	proc2.communicate()
-	return outname
+# def makeBedGraph(lowFDRreads,sizesFile):
+	# # Usage: From a bedFile, generate a bedGraph and bigWig.
+	# # Input: BedFile.
+	# # Output: BedGraph file.
+	# program='genomeCoverageBed'
+	# program2=os.getcwd() + '/bin/bedGraphToBigWig'
+	# cleanBed=cleanBedFile(lowFDRreads)
+	# outname=cleanBed.replace('.bed','.bedgraph')
+	# outname2=cleanBed.replace('.bed','.bw')
+	# outfh=open(outname,'w')
+	# proc=subprocess.Popen([program,'-bg','-split','-i',cleanBed,'-g',sizesFile],stdout=outfh)
+	# proc.communicate()
+	# outfh2=open(outname2,'w')
+	# proc2=subprocess.Popen([program2,outname,sizesFile,outname2],stdout=subprocess.PIPE)
+	# proc2.communicate()
+	# return outname
 
-print "Make bedGraph"
-logOpen.write("Make bedGraph.\n")
-bedGraphCLIPout=makeBedGraph(CLIPPERlowFDR,genomeFile)
-CLIPPERlowFDRcenters=getBedCenterPoints(CLIPPERlowFDR)
-allLowFDRCentersBedGraph=makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
+# print "Make bedGraph"
+# logOpen.write("Make bedGraph.\n")
+# bedGraphCLIPout=makeBedGraph(CLIPPERlowFDR,genomeFile)
+# CLIPPERlowFDRcenters=getBedCenterPoints(CLIPPERlowFDR)
+# allLowFDRCentersBedGraph=makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
 
-def filterSnoRNAs(proteinCodingReads,snoRNAmasker,miRNAmasker):
-	# Usage: Filter snoRNA and miRNAs from protein coding reads.
-	# Input: .bed file with protein coding reads.
-	# Output: snoRNA and miR filtered .bed file.
-	program='intersectBed'
-	proteinWithoutsnoRNAs=proteinCodingReads.replace('.bed','_snoRNAremoved.bed')
-	proteinWithoutmiRNAs=proteinWithoutsnoRNAs.replace('.bed','_miRNAremoved.bed')
-	outfh=open(proteinWithoutsnoRNAs, 'w')
-	proc=subprocess.Popen([program,'-a',proteinCodingReads,'-b',snoRNAmasker,'-v','-s'],stdout=outfh)
-	proc.communicate()
-	outfh.close()
-	outfh=open(proteinWithoutmiRNAs, 'w')
-	proc=subprocess.Popen([program,'-a',proteinWithoutsnoRNAs,'-b',miRNAmasker,'-v','-s'],stdout=outfh)
-	proc.communicate()
-	outfh.close()
-	return (proteinWithoutmiRNAs)
+# def filterSnoRNAs(proteinCodingReads,snoRNAmasker,miRNAmasker):
+	# # Usage: Filter snoRNA and miRNAs from protein coding reads.
+	# # Input: .bed file with protein coding reads.
+	# # Output: snoRNA and miR filtered .bed file.
+	# program='intersectBed'
+	# proteinWithoutsnoRNAs=proteinCodingReads.replace('.bed','_snoRNAremoved.bed')
+	# proteinWithoutmiRNAs=proteinWithoutsnoRNAs.replace('.bed','_miRNAremoved.bed')
+	# outfh=open(proteinWithoutsnoRNAs, 'w')
+	# proc=subprocess.Popen([program,'-a',proteinCodingReads,'-b',snoRNAmasker,'-v','-s'],stdout=outfh)
+	# proc.communicate()
+	# outfh.close()
+	# outfh=open(proteinWithoutmiRNAs, 'w')
+	# proc=subprocess.Popen([program,'-a',proteinWithoutsnoRNAs,'-b',miRNAmasker,'-v','-s'],stdout=outfh)
+	# proc.communicate()
+	# outfh.close()
+	# return (proteinWithoutmiRNAs)
 
-def getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists):
-	# Usage: Given a list of genes, return all reads for the associated genes.
-	# Input: Gene list and the path to lowFDR read file.
-	# Output: List of reads assocaited with the given genes.
-	lowFDRgenelist=[]
-	for path in pathToGeneLists:
-		outfile=path+'_LowFDRreads.bed'
-		proc=subprocess.Popen('grep -F -f %s %s > %s'%(path,CLIPPERlowFDR,outfile),shell=True)
-		proc.communicate()
-		return_code=proc.wait() # *** Remove later. ***
-		lowFDRgenelist=lowFDRgenelist+[outfile]
-	return lowFDRgenelist
+# def getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists):
+	# # Usage: Given a list of genes, return all reads for the associated genes.
+	# # Input: Gene list and the path to lowFDR read file.
+	# # Output: List of reads assocaited with the given genes.
+	# lowFDRgenelist=[]
+	# for path in pathToGeneLists:
+		# outfile=path+'_LowFDRreads.bed'
+		# proc=subprocess.Popen('grep -F -f %s %s > %s'%(path,CLIPPERlowFDR,outfile),shell=True)
+		# proc.communicate()
+		# return_code=proc.wait() # *** Remove later. ***
+		# lowFDRgenelist=lowFDRgenelist+[outfile]
+	# return lowFDRgenelist
 
-def compareLists(list1,list2,outname):
-	# Usage: Compare gene lists and output matches to the file. 
-	# Input: Two gene lists.
-	# Output: Path file containing the matching genes.
-	f=open(list1,'r')
-	g=open(list2,'r')
-	commonGenes=set(f.readlines()) & set(g.readlines())
-	geneCategory=outname.split('.')[1]
-	outputName=outfilepath+'clipGenes_'+geneCategory
-	outfh=open(outputName,'w')
-	for gene in commonGenes:
-		outfh.write(gene)
-	outfh.close()
-	return outputName
+# def compareLists(list1,list2,outname):
+	# # Usage: Compare gene lists and output matches to the file. 
+	# # Input: Two gene lists.
+	# # Output: Path file containing the matching genes.
+	# f=open(list1,'r')
+	# g=open(list2,'r')
+	# commonGenes=set(f.readlines()) & set(g.readlines())
+	# geneCategory=outname.split('.')[1]
+	# outputName=outfilepath+'clipGenes_'+geneCategory
+	# outfh=open(outputName,'w')
+	# for gene in commonGenes:
+		# outfh.write(gene)
+	# outfh.close()
+	# return outputName
 
-def getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot):
-	# Usage: Get all genes listed under each type, compare to CLIPper targets.
-	# Input: .bed file passed into CLIPper and the CLIPper windows file.
-	# Output: Path to file containing all CLIPper genes of each type.
-	geneTypes=[]
-	for genepath in geneAnnot:
-		lowFDRgenes=compareLists(CLIPpeGeneList,genepath,os.path.split(genepath)[1])
-		geneTypes=geneTypes+[lowFDRgenes]
-	return geneTypes
+# def getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot):
+	# # Usage: Get all genes listed under each type, compare to CLIPper targets.
+	# # Input: .bed file passed into CLIPper and the CLIPper windows file.
+	# # Output: Path to file containing all CLIPper genes of each type.
+	# geneTypes=[]
+	# for genepath in geneAnnot:
+		# lowFDRgenes=compareLists(CLIPpeGeneList,genepath,os.path.split(genepath)[1])
+		# geneTypes=geneTypes+[lowFDRgenes]
+	# return geneTypes
 
-print "Partition reads by type."
-logOpen.write("Partition reads by type.\n")
+# print "Partition reads by type."
+# logOpen.write("Partition reads by type.\n")
 
-pathToGeneLists=getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot)
-pathToReadLists=getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+# pathToGeneLists=getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot)
+# pathToReadLists=getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
 
-proteinCodingReads=outfilepath+'clipGenes_proteinCoding_LowFDRreads.bed'
-proteinBedGraph=makeBedGraph(proteinCodingReads,genomeFile)
-filteredProteinCodingCenters=filterSnoRNAs(getBedCenterPoints(proteinCodingReads),snoRNAmasker,miRNAmasker)
-filteredProteinCentersBedGraph=makeBedGraph(filteredProteinCodingCenters,genomeFile)
+# proteinCodingReads=outfilepath+'clipGenes_proteinCoding_LowFDRreads.bed'
+# proteinBedGraph=makeBedGraph(proteinCodingReads,genomeFile)
+# filteredProteinCodingCenters=filterSnoRNAs(getBedCenterPoints(proteinCodingReads),snoRNAmasker,miRNAmasker)
+# filteredProteinCentersBedGraph=makeBedGraph(filteredProteinCodingCenters,genomeFile)
 
-lincRNAReads=outfilepath+'clipGenes_lincRNA_LowFDRreads.bed'
-filteredLincRNACenters=filterSnoRNAs(getBedCenterPoints(lincRNAReads),snoRNAmasker,miRNAmasker)
+# lincRNAReads=outfilepath+'clipGenes_lincRNA_LowFDRreads.bed'
+# filteredLincRNACenters=filterSnoRNAs(getBedCenterPoints(lincRNAReads),snoRNAmasker,miRNAmasker)
 
 
-def sortFilteredBed(bedFile):
-	bf=pd.DataFrame(pd.read_table(bedFile,header=None))
-	bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
-	geneCounts=countHitsPerGene(bf)
-	return geneCounts
+# def sortFilteredBed(bedFile):
+	# bf=pd.DataFrame(pd.read_table(bedFile,header=None))
+	# bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
+	# geneCounts=countHitsPerGene(bf)
+	# return geneCounts
 
-def countHitsPerGene(bf):
-	# *** THIS MAY DEPEND UPON THE VERSION OF CLIPPER USED ***
-	bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
-	geneCounts=bf.groupby('geneName').size()
-	geneCounts.sort(ascending=False)
-	return geneCounts
+# def countHitsPerGene(bf):
+	# # *** THIS MAY DEPEND UPON THE VERSION OF CLIPPER USED ***
+	# bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
+	# geneCounts=bf.groupby('geneName').size()
+	# geneCounts.sort(ascending=False)
+	# return geneCounts
 
-def getSnoRNAreads(CLIPPERlowFDRcenters,snoRNAindex):
-	program='intersectBed'		
-	bedFile=outfilepath+'clipGenes_snoRNA_LowFDRreads.bed'
-	outfh=open(bedFile, 'w')
-	proc=subprocess.Popen([program,'-a',CLIPPERlowFDRcenters,'-b',snoRNAindex,'-s','-wa','-wb'],stdout=outfh)
-	proc.communicate()
-	outfh.close()	
-	return bedFile
+# def getSnoRNAreads(CLIPPERlowFDRcenters,snoRNAindex):
+	# program='intersectBed'		
+	# bedFile=outfilepath+'clipGenes_snoRNA_LowFDRreads.bed'
+	# outfh=open(bedFile, 'w')
+	# proc=subprocess.Popen([program,'-a',CLIPPERlowFDRcenters,'-b',snoRNAindex,'-s','-wa','-wb'],stdout=outfh)
+	# proc.communicate()
+	# outfh.close()	
+	# return bedFile
 
-def countSnoRNAs(bedFile_sno):
-	bf=pd.DataFrame(pd.read_table(bedFile_sno,header=None))
-	bf.columns=['Chr','Start','End','CLIPper_name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
-	geneCounts=bf.groupby('name_snoRNA').size()
-	geneCounts.sort(ascending=False)
-	return geneCounts
+# def countSnoRNAs(bedFile_sno):
+	# bf=pd.DataFrame(pd.read_table(bedFile_sno,header=None))
+	# bf.columns=['Chr','Start','End','CLIPper_name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
+	# geneCounts=bf.groupby('name_snoRNA').size()
+	# geneCounts.sort(ascending=False)
+	# return geneCounts
 
-def countRemainingGeneTypes(remaining):
-	for bedFile in remaining:
-		try:
-			bf=pd.DataFrame(pd.read_table(bedFile,header=None))
-			bf.columns=['Chr','Start','End','ReadName','Q','Strand','CLIPper_winChr','CLIPper_winStart','CLIPper_winEmd','CLIPper_winaName','CLIPper_winP','CLIPper_winStrand']
-			# *** THIS MAY DEPEND UPON THE VERSION OF CLIPPER USED ***
-			bf['geneName']=bf['CLIPper_winaName'].apply(lambda x: x.split('_')[0])
-			geneCounts=bf.groupby('geneName').size()
-			geneCounts.sort(ascending=False) 
+# def countRemainingGeneTypes(remaining):
+	# for bedFile in remaining:
+		# try:
+			# bf=pd.DataFrame(pd.read_table(bedFile,header=None))
+			# bf.columns=['Chr','Start','End','ReadName','Q','Strand','CLIPper_winChr','CLIPper_winStart','CLIPper_winEmd','CLIPper_winaName','CLIPper_winP','CLIPper_winStrand']
+			# # *** THIS MAY DEPEND UPON THE VERSION OF CLIPPER USED ***
+			# bf['geneName']=bf['CLIPper_winaName'].apply(lambda x: x.split('_')[0])
+			# geneCounts=bf.groupby('geneName').size()
+			# geneCounts.sort(ascending=False) 
 						
-			head,fname=os.path.split(bedFile)
-			geneType=fname.split("_")[1]
-			outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_%s'%geneType
-			geneCounts.to_csv(outfilepathToSave)
+			# head,fname=os.path.split(bedFile)
+			# geneType=fname.split("_")[1]
+			# outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_%s'%geneType
+			# geneCounts.to_csv(outfilepathToSave)
 			
-		except ValueError:
-			print "No reads in %s"%bedFile
+		# except ValueError:
+			# print "No reads in %s"%bedFile
 
-print "Generate sorted gene lists by gene type."
-logOpen.write("Generate sorted gene lists by gene type.\n")
+# print "Generate sorted gene lists by gene type."
+# logOpen.write("Generate sorted gene lists by gene type.\n")
 
-bedFile_pc=outfilepath+"clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
-geneCounts_pc=sortFilteredBed(bedFile_pc) 
-outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
-geneCounts_pc.to_csv(outfilepathToSave)
+# bedFile_pc=outfilepath+"clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
+# geneCounts_pc=sortFilteredBed(bedFile_pc) 
+# outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
+# geneCounts_pc.to_csv(outfilepathToSave)
 
-bedFile_linc=outfilepath+"clipGenes_lincRNA_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
-if os.stat(bedFile_linc).st_size > 0:
-	geneCounts_linc=sortFilteredBed(bedFile_linc)
-	outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_lincRNA'
-	geneCounts_linc.to_csv(outfilepathToSave)
+# bedFile_linc=outfilepath+"clipGenes_lincRNA_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
+# if os.stat(bedFile_linc).st_size > 0:
+	# geneCounts_linc=sortFilteredBed(bedFile_linc)
+	# outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_lincRNA'
+	# geneCounts_linc.to_csv(outfilepathToSave)
 
-CLIPPERlowFDRcenters=getBedCenterPoints(CLIPPERlowFDR)
-allLowFDRCentersBedGraph=makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
-bedFile_sno=getSnoRNAreads(CLIPPERlowFDRcenters,snoRNAindex)
-if os.stat(bedFile_sno).st_size > 0:
-	geneCounts_sno=countSnoRNAs(bedFile_sno) 
-	outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_snoRNA'
-	geneCounts_sno.to_csv(outfilepathToSave)
+# CLIPPERlowFDRcenters=getBedCenterPoints(CLIPPERlowFDR)
+# allLowFDRCentersBedGraph=makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
+# bedFile_sno=getSnoRNAreads(CLIPPERlowFDRcenters,snoRNAindex)
+# if os.stat(bedFile_sno).st_size > 0:
+	# geneCounts_sno=countSnoRNAs(bedFile_sno) 
+	# outfilepathToSave=outfilepath + '/PlotData_ReadsPerGene_snoRNA'
+	# geneCounts_sno.to_csv(outfilepathToSave)
 	
-remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
-countRemainingGeneTypes(remaining)
+# remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
+# countRemainingGeneTypes(remaining)
 
 
-def makeClusterCenter(windowsFile):
-	# Usage: Generate a file of cluster centers.
-	# Input: Raw CLIPper output file.
-	# Output: File with coordinates for the center of each CLIPper cluster.
-	cleanBed = cleanBedFile(windowsFile)
-	centers=cleanBed.replace('.bed','.clusterCenter')
-	f = open(centers, 'w')
-	with open(cleanBed, 'r') as infile:
-		for line in infile:
-			elementList = line.strip().split('\t')
-			diff=abs(int((int(elementList[1])-int(elementList[2]))/2))
-			f.write(elementList[0]+'\t'+str(int(elementList[1])+diff)+'\t'+str(int(elementList[1])+diff+1)+'\n')
-	f.close()
-	return centers
+# def makeClusterCenter(windowsFile):
+	# # Usage: Generate a file of cluster centers.
+	# # Input: Raw CLIPper output file.
+	# # Output: File with coordinates for the center of each CLIPper cluster.
+	# cleanBed = cleanBedFile(windowsFile)
+	# centers=cleanBed.replace('.bed','.clusterCenter')
+	# f = open(centers, 'w')
+	# with open(cleanBed, 'r') as infile:
+		# for line in infile:
+			# elementList = line.strip().split('\t')
+			# diff=abs(int((int(elementList[1])-int(elementList[2]))/2))
+			# f.write(elementList[0]+'\t'+str(int(elementList[1])+diff)+'\t'+str(int(elementList[1])+diff+1)+'\n')
+	# f.close()
+	# return centers
 
-def getClusterIntensity(bedGraph,centerCoordinates):
-	# Usage: Generate a matrix of read itensity values around CLIPper cluster center.
-	# Input: BedGraph and cluster center file.
-	# Output: Generates a matrix, which is passed into R.
-	program=os.getcwd() + '/bin/grep_chip-seq_intensity.pl'
-	program2='wait'
-	proc=subprocess.Popen(['perl',program, centerCoordinates, bedGraph],)
-	proc.communicate()
-	logOpen.write("Waiting for Cluster Intensity file completion...\n")
-	proc2=subprocess.Popen(program2,shell=True)
-	proc2.communicate()
+# def getClusterIntensity(bedGraph,centerCoordinates):
+	# # Usage: Generate a matrix of read itensity values around CLIPper cluster center.
+	# # Input: BedGraph and cluster center file.
+	# # Output: Generates a matrix, which is passed into R.
+	# program=os.getcwd() + '/bin/grep_chip-seq_intensity.pl'
+	# program2='wait'
+	# proc=subprocess.Popen(['perl',program, centerCoordinates, bedGraph],)
+	# proc.communicate()
+	# logOpen.write("Waiting for Cluster Intensity file completion...\n")
+	# proc2=subprocess.Popen(program2,shell=True)
+	# proc2.communicate()
 	
-print "Get binding intensity around cluster centers."
-logOpen.write("Get binding intensity around cluster centers.\n")
-bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
-centerCoordinates=makeClusterCenter(CLIPperOutBed) 
-getClusterIntensity(bedGraphCLIPin,centerCoordinates)
+# print "Get binding intensity around cluster centers."
+# logOpen.write("Get binding intensity around cluster centers.\n")
+# bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
+# centerCoordinates=makeClusterCenter(CLIPperOutBed) 
+# getClusterIntensity(bedGraphCLIPin,centerCoordinates)
 
 
-def extract_regions(bedIn, fivePUTRBed, threePUTRBed, exonBed):
-	# Usage: Extract all region specific reads from the input file.
-	# Input: .bed files
-	# Output: Mutually exclusive partitions of the input file.
+# def extract_regions(bedIn, fivePUTRBed, threePUTRBed, exonBed):
+	# # Usage: Extract all region specific reads from the input file.
+	# # Input: .bed files
+	# # Output: Mutually exclusive partitions of the input file.
 	
-	exonreads = bedIn.replace('.bed', '_exons.bed')
-	intronreads = bedIn.replace('.bed', '_introns.bed')
-	cmd1 = "bedtools intersect -a {} -b {} -s -u > {}".format(bedIn, exonBed, exonreads)
-	cmd2 = "bedtools intersect -a {} -b {} -s -v > {}".format(bedIn, exonBed, intronreads)
-	print "Exons"; os.system(cmd1)
-	print "Introns"; os.system(cmd2)
+	# exonreads = bedIn.replace('.bed', '_exons.bed')
+	# intronreads = bedIn.replace('.bed', '_introns.bed')
+	# cmd1 = "bedtools intersect -a {} -b {} -s -u > {}".format(bedIn, exonBed, exonreads)
+	# cmd2 = "bedtools intersect -a {} -b {} -s -v > {}".format(bedIn, exonBed, intronreads)
+	# print "Exons"; os.system(cmd1)
+	# print "Introns"; os.system(cmd2)
 	
-	fivePreads = bedIn.replace('.bed', '_5p.bed')
-	threePreads = bedIn.replace('.bed', '_3p.bed')
-	cmd1 = "bedtools intersect -a {} -b {} -s -u > {}".format(exonreads, fivePUTRBed, fivePreads)
-	cmd2 = "bedtools intersect -a {} -b {} -s -u > {}".format(exonreads, threePUTRBed, threePreads)
-	print "5'"; os.system(cmd1)
-	print "3'"; os.system(cmd2)
+	# fivePreads = bedIn.replace('.bed', '_5p.bed')
+	# threePreads = bedIn.replace('.bed', '_3p.bed')
+	# cmd1 = "bedtools intersect -a {} -b {} -s -u > {}".format(exonreads, fivePUTRBed, fivePreads)
+	# cmd2 = "bedtools intersect -a {} -b {} -s -u > {}".format(exonreads, threePUTRBed, threePreads)
+	# print "5'"; os.system(cmd1)
+	# print "3'"; os.system(cmd2)
 	
-	cdsreads = bedIn.replace('.bed', '_cds.bed')
-	cmd1 = "cat {} {} | bedtools intersect -a {} -b stdin -s -v > {}".format(fivePUTRBed, threePUTRBed, exonreads, cdsreads)
-	print "CDS"; os.system(cmd1)
+	# cdsreads = bedIn.replace('.bed', '_cds.bed')
+	# cmd1 = "cat {} {} | bedtools intersect -a {} -b stdin -s -v > {}".format(fivePUTRBed, threePUTRBed, exonreads, cdsreads)
+	# print "CDS"; os.system(cmd1)
 	
-	return (exonreads, intronreads, fivePreads, threePreads, cdsreads)
+	# return (exonreads, intronreads, fivePreads, threePreads, cdsreads)
 
-def read_readspergene_file(data_dict, pos, fn):
-	with open(fn, 'r') as ifile:
-		for line in ifile:
-			[gene, cts] = line.rstrip().split(',')
-			data_dict[gene][pos] = int(cts)
-	return data_dict
+# def read_readspergene_file(data_dict, pos, fn):
+	# with open(fn, 'r') as ifile:
+		# for line in ifile:
+			# [gene, cts] = line.rstrip().split(',')
+			# data_dict[gene][pos] = int(cts)
+	# return data_dict
 	
-def gene_binding_by_region():
-	fivePfile = outfilepath + '/PlotData_ReadsPerGene_5pUTR'
-	threePfile = outfilepath + '/PlotData_ReadsPerGene_3pUTR'
-	CDSfile = outfilepath + '/PlotData_ReadsPerGene_CDS'
-	exonfile = outfilepath + '/PlotData_ReadsPerGene_Exons'
-	intronfile = outfilepath + '/PlotData_ReadsPerGene_Introns'
-	allfile = outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
+# def gene_binding_by_region():
+	# fivePfile = outfilepath + '/PlotData_ReadsPerGene_5pUTR'
+	# threePfile = outfilepath + '/PlotData_ReadsPerGene_3pUTR'
+	# CDSfile = outfilepath + '/PlotData_ReadsPerGene_CDS'
+	# exonfile = outfilepath + '/PlotData_ReadsPerGene_Exons'
+	# intronfile = outfilepath + '/PlotData_ReadsPerGene_Introns'
+	# allfile = outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
 	
-	gene_to_counts = defaultdict(lambda: [0,0,0,0,0,0])  # all, exon, intron, 5P, CDS, 3P
-	if glob.glob(allfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 0, allfile)
-	if glob.glob(exonfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 1, exonfile)
-	if glob.glob(intronfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 2, intronfile)
-	if glob.glob(fivePfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 3, fivePfile)
-	if glob.glob(CDSfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 4, CDSfile)
-	if glob.glob(threePfile):
-		gene_to_counts = read_readspergene_file(gene_to_counts, 5, threePfile)
+	# gene_to_counts = defaultdict(lambda: [0,0,0,0,0,0])  # all, exon, intron, 5P, CDS, 3P
+	# if glob.glob(allfile):
+		# gene_to_counts = read_readspergene_file(gene_to_counts, 0, allfile)
+	# if glob.glob(exonfile):
+		# gene_to_counts = read_readspergene_file(gene_to_counts, 1, exonfile)
+	# if glob.glob(intronfile):
+		# gene_to_counts = read_readspergene_file(gene_to_counts, 2, intronfile)
+	# if glob.glob(fivePfile):
+		# gene_to_counts = read_readspergene_file(gene_to_counts, 3, fivePfile)
+	# if glob.glob(CDSfile):
+		# gene_to_counts = read_readspergene_file(gene_to_counts, 4, CDSfile)
+	# if glob.glob(threePfile):
+		# gene_to_counts = read_readspergene_file(gene_to_counts, 5, threePfile)
 	
-	ofn = outfilepath + '/PlotData_proteinCoding_byRegion'
-	print ofn
-	with open(ofn, 'w') as ofile:
-		writer = csv.writer(ofile)
-		writer.writerow(['Gene', 'All', 'Exonic', 'Intronic', '5P', 'CDS', '3P'])
-		for gene in gene_to_counts:
-			row = [gene]
-			row.extend(gene_to_counts[gene])
-			writer.writerow(row)
+	# ofn = outfilepath + '/PlotData_proteinCoding_byRegion'
+	# print ofn
+	# with open(ofn, 'w') as ofile:
+		# writer = csv.writer(ofile)
+		# writer.writerow(['Gene', 'All', 'Exonic', 'Intronic', '5P', 'CDS', '3P'])
+		# for gene in gene_to_counts:
+			# row = [gene]
+			# row.extend(gene_to_counts[gene])
+			# writer.writerow(row)
 	
-print "Intron and UTR analysis."
-logOpen.write("Intron and UTR analysis.\n")
-exonreads, intronreads, fivePreads, threePreads, cdsreads = extract_regions(filteredProteinCodingCenters, fivePUTRBed, threePUTRBed, exonBed)
+# print "Intron and UTR analysis."
+# logOpen.write("Intron and UTR analysis.\n")
+# exonreads, intronreads, fivePreads, threePreads, cdsreads = extract_regions(filteredProteinCodingCenters, fivePUTRBed, threePUTRBed, exonBed)
 
-if os.stat(fivePreads).st_size > 0:
-	geneCounts_5p=sortFilteredBed(fivePreads) 
-	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_5pUTR'
-	geneCounts_5p.to_csv(outfilepathToSave)
+# if os.stat(fivePreads).st_size > 0:
+	# geneCounts_5p=sortFilteredBed(fivePreads) 
+	# outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_5pUTR'
+	# geneCounts_5p.to_csv(outfilepathToSave)
 
-if os.stat(threePreads).st_size > 0:
-	geneCounts_3p=sortFilteredBed(threePreads) 
-	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_3pUTR'
-	geneCounts_3p.to_csv(outfilepathToSave)
+# if os.stat(threePreads).st_size > 0:
+	# geneCounts_3p=sortFilteredBed(threePreads) 
+	# outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_3pUTR'
+	# geneCounts_3p.to_csv(outfilepathToSave)
 
-if os.stat(cdsreads).st_size > 0:
-	geneCounts_cds=sortFilteredBed(cdsreads) 
-	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
-	geneCounts_cds.to_csv(outfilepathToSave) 
+# if os.stat(cdsreads).st_size > 0:
+	# geneCounts_cds=sortFilteredBed(cdsreads) 
+	# outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_CDS'
+	# geneCounts_cds.to_csv(outfilepathToSave) 
 
-if os.stat(exonreads).st_size > 0:
-	geneCounts_5p=sortFilteredBed(exonreads) 
-	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_Exons'
-	geneCounts_5p.to_csv(outfilepathToSave)
+# if os.stat(exonreads).st_size > 0:
+	# geneCounts_5p=sortFilteredBed(exonreads) 
+	# outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_Exons'
+	# geneCounts_5p.to_csv(outfilepathToSave)
 
-if os.stat(intronreads).st_size > 0:
-	geneCounts_3p=sortFilteredBed(intronreads) 
-	outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_Introns'
-	geneCounts_3p.to_csv(outfilepathToSave)
+# if os.stat(intronreads).st_size > 0:
+	# geneCounts_3p=sortFilteredBed(intronreads) 
+	# outfilepathToSave=outfilepath+'/PlotData_ReadsPerGene_Introns'
+	# geneCounts_3p.to_csv(outfilepathToSave)
 
-gene_binding_by_region()
+# gene_binding_by_region()
 
-def makeTab(bedGraph,genesFile,sizesFile):
-	program = os.getcwd() + '/bin/bedGraph2tab.pl'
-	program2 = 'wait'
-	outfile=bedGraph.replace('.bedgraph','.tab')
-	if glob.glob(outfile): return outfile
-	proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
-	proc.communicate()
-	proc2 = subprocess.Popen(program2,shell=True)
-	proc2.communicate()
-	return outfile
+# def makeTab(bedGraph,genesFile,sizesFile):
+	# program = os.getcwd() + '/bin/bedGraph2tab.pl'
+	# program2 = 'wait'
+	# outfile=bedGraph.replace('.bedgraph','.tab')
+	# if glob.glob(outfile): return outfile
+	# proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
+	# proc.communicate()
+	# proc2 = subprocess.Popen(program2,shell=True)
+	# proc2.communicate()
+	# return outfile
 
-def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
-	# Usage: Generate a matrix of read intensity values across gene body.
-	# Input: BedGraph.
-	# Output: Generates two matrices.
-	program= os.getcwd() + '/bin/averageGraph_scaled_tab.pl'
-	program2 = 'wait'
-	tabFile=makeTab(bedGraph,genesFile,sizesFile)
-	outhandle=tabFile.replace('.tab','_UTRs')
-	proc = subprocess.Popen(['perl',program,utrFile,tabFile,tabFile,outhandle],)
-	proc.communicate()
-	proc2 = subprocess.Popen(program2,shell=True)
-	proc2.communicate()
+# def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
+	# # Usage: Generate a matrix of read intensity values across gene body.
+	# # Input: BedGraph.
+	# # Output: Generates two matrices.
+	# program= os.getcwd() + '/bin/averageGraph_scaled_tab.pl'
+	# program2 = 'wait'
+	# tabFile=makeTab(bedGraph,genesFile,sizesFile)
+	# outhandle=tabFile.replace('.tab','_UTRs')
+	# proc = subprocess.Popen(['perl',program,utrFile,tabFile,tabFile,outhandle],)
+	# proc.communicate()
+	# proc2 = subprocess.Popen(program2,shell=True)
+	# proc2.communicate()
 
-print "Gene body analysis."
-logOpen.write("Gene body analysis.\n")
-bedGraphProtein=makeBedGraph(bedFile_pc,genomeFile)
-makeAvgGraph(bedGraphProtein,utrFile,genesFile,sizesFile)
-
-
-def getGeneStartStop(bedFile,geneRef):
-	try:
-		bf=pd.DataFrame(pd.read_table(bedFile,header=None))
-		bf.columns=['Chr','Start','End','ReadName','Q','Strand','CLIPper_winChr','CLIPper_winStart','CLIPper_winEmd','CLIPper_winaName','CLIPper_winP','CLIPper_winStrand']
-		bf['geneName']=bf['CLIPper_winaName'].apply(lambda x: x.split('_')[0].split('.')[0])
-		merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
-		ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','End','Strand']]
-		outfilepathToSave=bedFile.replace(".bed",".geneStartStop")
-		ncRNA_startStop.to_csv(outfilepathToSave)
-	except ValueError:
-		print "No reads in %s"%bedFile
-
-print "ncRNA gene body analysis."
-geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
-remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
-for bedFile in remaining:
-	st_stop=getGeneStartStop(bedFile,geneRef)
+# print "Gene body analysis."
+# logOpen.write("Gene body analysis.\n")
+# bedGraphProtein=makeBedGraph(bedFile_pc,genomeFile)
+# makeAvgGraph(bedGraphProtein,utrFile,genesFile,sizesFile)
 
 
-# lincRNA file processing
-bedFile_linc=outfilepath+"clipGenes_lincRNA_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
-if os.stat(bedFile_linc).st_size > 0:
-	bf=pd.DataFrame(pd.read_table(bedFile_linc,header=None))
-	bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
-	bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
-	merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
-	ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
-	outfilepathToSave=bedFile_linc.replace(".bed",".geneStartStop")
-	ncRNA_startStop.to_csv(outfilepathToSave)
+# def getGeneStartStop(bedFile,geneRef):
+	# try:
+		# bf=pd.DataFrame(pd.read_table(bedFile,header=None))
+		# bf.columns=['Chr','Start','End','ReadName','Q','Strand','CLIPper_winChr','CLIPper_winStart','CLIPper_winEmd','CLIPper_winaName','CLIPper_winP','CLIPper_winStrand']
+		# bf['geneName']=bf['CLIPper_winaName'].apply(lambda x: x.split('_')[0].split('.')[0])
+		# merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
+		# ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','End','Strand']]
+		# outfilepathToSave=bedFile.replace(".bed",".geneStartStop")
+		# ncRNA_startStop.to_csv(outfilepathToSave)
+	# except ValueError:
+		# print "No reads in %s"%bedFile
+
+# print "ncRNA gene body analysis."
+# geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
+# remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
+# for bedFile in remaining:
+	# st_stop=getGeneStartStop(bedFile,geneRef)
+
+
+# # lincRNA file processing
+# bedFile_linc=outfilepath+"clipGenes_lincRNA_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed"
+# if os.stat(bedFile_linc).st_size > 0:
+	# bf=pd.DataFrame(pd.read_table(bedFile_linc,header=None))
+	# bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
+	# bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
+	# merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
+	# ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
+	# outfilepathToSave=bedFile_linc.replace(".bed",".geneStartStop")
+	# ncRNA_startStop.to_csv(outfilepathToSave)
 
 
 def makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation):
@@ -1000,11 +977,6 @@ def makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation):
 	repeatAnnotDF['End_for_extraction']=repeatAnnotDF['IndexEnd']+1 # Python list extraction is not end index inclusive; to extract sequence, use end + 1. 
 	return (repeat_genome_bases,repeatAnnotDF)
 
-def readBed(path):
-	bedFile = pd.read_table(path,dtype=str,header=None)
-	bedFile.columns=['Index','Start','Stop','Name','QS','Strand']
-	bedFile['Start']=bedFile['Start'].astype(int)
-	return bedFile
 
 print "Record repeat RNA."
 repeat_genome_bases,repeatAnnotDF=makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation)
@@ -1044,13 +1016,14 @@ def plot_ReadAccounting(outfilepath,sampleName):
 	bases = [outfilepath + base for base in bases]
 	
 	filesToCount = reads
+	filesToCount.extend([base + '_trimmed.fastq' for base in bases])
 	filesToCount.extend([base + '_trimmed_mappedToRepeat_withDupes.bed' for base in bases])
 	filesToCount.extend([base + '_trimmed_mappedToTrna_withDupes.bed' for base in bases])
 	filesToCount.extend([base + '_trimmed_mappedToGenome_withDupes.bed' for base in bases])
 	filesToCount.extend([base + '_trimmed_mappedToGenome_withDupes_noRepeat.bed' for base in bases])
 	
-	clipperIN = outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIPPERin.bed'%(threshold,index_tag)
-	clipperOUT = outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_lowFDRreads.bed'%(threshold,index_tag)
+	clipperIN = outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIPPERin.bed'%(threshold_nr,index_tag)
+	clipperOUT = outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_lowFDRreads.bed'%(threshold_nr,index_tag)
 	filesToCount.extend([clipperIN, clipperOUT])
 	
 	fileNameBases = ['Raw', 'No dupes', 'Repeat Mapped', 'tRNA Mapped', 'Genome Mapped', 'Blacklist Masked']
@@ -1078,16 +1051,14 @@ def plot_ReadAccounting(outfilepath,sampleName):
 		line.set_markersize(0)
 	plt.title('Read counts',fontsize=5)
 	
+	print fileNames
+	print counts
 	readDF=pd.DataFrame()
-	readDF['File_name']=fileNames
-	readDF['Reads_per_file']=counts
 	outfilepathToSave=outfilepath + '/PlotData_ReadsPerPipeFile'
 	readDF.to_csv(outfilepathToSave)
 
 print "Making Figure 1"
 logOpen.write("Making Figure 1\n")
-# proc = subprocess.Popen(["rm", "-f", "*.fastq"])
-# proc.communicate()
 
 def plot_BoundGeneTypes(outfilepath,sampleName):
 	record=pd.DataFrame()   
@@ -1117,7 +1088,7 @@ def plot_BoundGeneTypes(outfilepath,sampleName):
 	
 
 def plot_ReadsPerCluster(outfilepath,sampleName):
-	readPerCluster=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters.readsPerCluster'%(threshold,index_tag)
+	readPerCluster=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters.readsPerCluster'%(threshold_nr,index_tag)
 	clust=pd.DataFrame(pd.read_table(readPerCluster,header=None))
 	clust.columns=['ReadsPerCluster']
 	clust=clust['ReadsPerCluster']
@@ -1139,7 +1110,7 @@ def plot_ReadsPerCluster(outfilepath,sampleName):
 	
 
 def plot_ClusterSizes(outfilepath,sampleName):
-	clipClusters=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters'%(threshold,index_tag)
+	clipClusters=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters'%(threshold_nr,index_tag)
 	clust=pd.DataFrame(pd.read_table(clipClusters,header=None,skiprows=1))
 	clust.columns=['chr','start','end','name','score','strand','m1','m2']
 	clust['clusterSize']=clust['start']-clust['end']
@@ -1154,7 +1125,7 @@ def plot_ClusterSizes(outfilepath,sampleName):
 	plt.title('Cluster size',fontsize=5)
 
 def plot_clusterBindingIntensity(outfilepath,sampleName):
-	clusterCenterHeatmap=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_cleaned_sorted.clusterCenter_heatmap.txt'%(threshold,index_tag)
+	clusterCenterHeatmap=outfilepath+sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters_cleaned_sorted.clusterCenter_heatmap.txt'%(threshold_nr,index_tag)
 	hmap=pd.DataFrame(pd.read_table(clusterCenterHeatmap,header=None,skiprows=1))
 	hmap_vals=hmap.ix[:,1:]
 	sums=hmap_vals.sum(axis=1)
