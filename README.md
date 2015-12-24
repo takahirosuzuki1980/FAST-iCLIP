@@ -22,7 +22,7 @@ The following README will focus mainly on `fasticlip`. The pdf in the repository
 Usage
 -----
 
-`fasticlip [-h] -i INPUT1 INPUT2 [--hg19 | --mm9] -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-t THRESHOLD] [-q Q] [-p P]`
+`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--hg19 | --mm9] -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-m MAPQ] [-q Q] [-p P] [-l L]`
 
 Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`
 
@@ -31,7 +31,7 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   flag | description
   ------------------|------------------------------------------------
   -h, --help   |      show this help message and exit
-  -i INPUT1 INPUT2  | 2 input FASTQ (or fastq.gz) files separated by a space
+  -i INPUT(s) | At least one input FASTQ (or fastq.gz) files; separated by spaces
   --hg19        |    required if your CLIP is from human
   --mm9          |   required if your CLIP is from mouse
   -n NAME         |  Name of output directory
@@ -41,10 +41,13 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
 
   flag | description
   ------------------|------------------------------------------------
-  -f N          |    Number of bases to trim from 5' end of each read. Default is 13.
+  --trimmed       |      flag if files are already trimmed
+  -f N          |    Number of bases to trim from 5' end of each read. Default is 14.
   -a ADAPTER     |   3' adapter to trim from the end of each read. Default is A            GATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.
-  -t THRESHOLD    |  Stringency of RT stop filtering, where higher numbers indicate greater stringency. Default is 3.
-  -q Q             | Minimum quality score to keep during filtering. Default is 25.
+  -tr REPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
+  -tn NONREPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
+  -m MAPQ         |      Minimum MAPQ (Bowtie alignment) score allowed. Default is 42.
+  -q Q         |         Minimum average quality score allowed during read filtering. Default is 25.
   -p P          |    Percentage of bases that must have quality > q during filtering. Default is 80.
 
 
@@ -77,7 +80,7 @@ Dependencies
 Input
 -----
 
-There must be two replicates of your iCLIP data in FASTQ format. Compressed FASTQs (fastq.gz) are acceptable as well. These FASTQ files should NOT be trimmed or processed because trimming and processing will occur as part of the pipeline.
+At least one FASTQ or compressed FASTQ (fastq.gz). Use the `--trimmed` flag if trimming has already been done.
 
 Output
 ------
