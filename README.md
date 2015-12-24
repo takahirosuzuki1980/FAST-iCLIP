@@ -51,6 +51,7 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   -m MAPQ         |      Minimum MAPQ (Bowtie alignment) score allowed. Default is 42.
   -q Q         |         Minimum average quality score allowed during read filtering. Default is 25.
   -p P          |    Percentage of bases that must have quality > q during filtering. Default is 80.
+  -l L           |       Minimum length of read. Default is 15.
 
 
 Installation instructions
