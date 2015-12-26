@@ -424,7 +424,7 @@ def countPassed(x, n):
 		if i >= n: ct += 1
 	return ct
 	
-def mergeRT(RTstopFiles, outfilename, minpass, threshold, expand, strand):
+def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand, strand):
 	# Usage: Merge RT stops between replicates and keep only those positions that exceed threshold.
 	# Input: Files with RT stops for each replicate, outfile, threshold, strand, and bases to expand around RT stop.
 	# Output: None. Writes merged RT stop file.
@@ -439,6 +439,7 @@ def mergeRT(RTstopFiles, outfilename, minpass, threshold, expand, strand):
 	m_filter['stdev'] = m.apply(np.std, axis=1)
 	
 	f = open(outfilename, 'w')
+	fs = open(statsfilename, 'w')
 	for i in m_filter.index:
 		chrom = i[0]
 		RT = i[1]
@@ -447,9 +448,14 @@ def mergeRT(RTstopFiles, outfilename, minpass, threshold, expand, strand):
 		stdev = m_filter.loc[i, 'stdev']
 		if RT > expand:
 			read = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand))+'\n'
+			sread = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand, mean, stdev))+'\n'
 		else:
 			read = '\t'.join((chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand))+'\n'
+			sread = '\t'.join((chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand, mean, stdev))+'\n'
 		f.write(read*(count))
+		fs.write(sread)
+	f.close()
+	fs.close()
 
 print "\nRepeat RT stop isolation."
 logOpen.write("Repeat RT stop isolation.\n")
@@ -462,9 +468,10 @@ logOpen.write("Merge Repeat RT stops.\n")
 posMerged = outfilepath+sampleName+'_repeat_positivereads.mergedRT'
 negMerged = outfilepath+sampleName+'_repeat_negativereads.mergedRT'
 negAndPosMerged = outfilepath+sampleName+'_threshold=%s'%threshold_rep+'_repeat_allreads.mergedRT.bed'
-mergeRT(positiveRTstop_rep, posMerged, minpass_rep, threshold_rep, expand, '+')
-mergeRT(negativeRTstop_rep, negMerged, minpass_rep, threshold_rep, expand, '-')
+mergeRT(positiveRTstop_rep, posMerged, posMerged + '_stats', minpass_rep, threshold_rep, expand, '+')
+mergeRT(negativeRTstop_rep, negMerged, negMerged + '_stats', minpass_rep, threshold_rep, expand, '-')
 fileCat(negAndPosMerged, [posMerged, negMerged])
+fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
 print "Nonrepeat RT stop isolation."
 logOpen.write("Nonrepeat RT stop isolation.\n")
@@ -477,9 +484,10 @@ logOpen.write("Merge Nonrepeat RT stops.\n")
 posMerged = outfilepath+sampleName+'_%s_positivereads.mergedRT'%index_tag
 negMerged = outfilepath+sampleName+'_%s_negativereads.mergedRT'%index_tag
 negAndPosMerged = outfilepath+sampleName+'_threshold=%s'%threshold_nr+'_%s_allreads.mergedRT.bed'%index_tag
-mergeRT(positiveRTstop, posMerged, minpass_nr, threshold_nr, expand, '+')
-mergeRT(negativeRTstop, negMerged, minpass_nr, threshold_nr, expand, '-')
+mergeRT(positiveRTstop, posMerged, posMerged + '_stats', minpass_nr, threshold_nr, expand, '+')
+mergeRT(negativeRTstop, negMerged, negMerged + '_stats', minpass_nr, threshold_nr, expand, '-')
 fileCat(negAndPosMerged,[posMerged,negMerged])
+fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
 
 def runCLIPPER(RTclusterfile,genome,genomeFile):
