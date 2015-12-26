@@ -66,6 +66,12 @@ Installation instructions
 5. Try running the following command: 
   `./fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run fairly quickly. Look inside `results/MMhur` for output files.
 
+To run `fasticlip` from outside its installation directory, add the following lines to the end of your `.bash_profile` script:
+
+	export FASTICLIP_PATH=<your absolute FAST-iCLIP installation path>
+	export PATH=$FASTICLIP_PATH:$PATH
+Save the file, then run `source ~/.bash_profile`.
+
 Dependencies
 ------------
 
