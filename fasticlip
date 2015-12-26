@@ -444,8 +444,8 @@ def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand,
 		chrom = i[0]
 		RT = i[1]
 		count = m_filter.loc[i,'sum']
-		mean = m_filter.loc[i, 'mean']
-		stdev = m_filter.loc[i, 'stdev']
+		mean = str(m_filter.loc[i, 'mean'])
+		stdev = str(m_filter.loc[i, 'stdev'])
 		if RT > expand:
 			read = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand))+'\n'
 			sread = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand, mean, stdev))+'\n'
@@ -1310,22 +1310,39 @@ fig2.savefig(outfilepath+'Figure2.pdf',format='pdf',bbox_inches='tight',dpi=150,
 def read_csv_by_line(fn):
 	import csv
 	
-	RTpositions = []
+	RTpositions_plus = []
+	RTpositions_minus = []
 	start = 0
 	end = 0
 	with open(fn, 'r') as ifile:
 		reader = csv.reader(ifile)
 		reader.next()
 		for row in reader:
-			RTpositions.append(int(row[7]))
+			if row[6] == '+': RTpositions_plus.append(int(row[7]))
+			else: RTpositions_minus.append(int(row[7]))
 			
 		ifile.seek(0)
 		reader.next()  # skip header
 		row = reader.next()
 		start = int(row[9])
 		end = int(row[8])
-	return np.array(RTpositions), start, end
+	return np.array(RTpositions_plus), np.array(RTpositions_minus), start, end
 	
+def get_histogram(RTpositions, bins):
+	hist, bins = np.histogram(RTpositions, bins=bins)
+	center=(bins[:-1] + bins[1:])/2
+	
+	# Normalize
+	histPlot=np.array(hist,dtype=float)
+	histPlot=np.array(histPlot/float(len(RTpositions)),dtype=float)
+		
+	# Make sure same length
+	sequence=repeat_genome_bases[start:end+1]
+	hist = hist[:len(sequence)]
+	histPlot = hist[:len(sequence)]
+	center = center[:len(sequence)]
+	
+	return hist, histPlot, sequence, center	
 
 def plot_repeatRNA(outfilepath,sampleName):
 	repeat_genome=np.genfromtxt(repeatGenomeBuild,dtype='string')
@@ -1338,40 +1355,32 @@ def plot_repeatRNA(outfilepath,sampleName):
 	for path in repFiles:
 		name=path.split('RepeatRNAreads_')[-1]
 		try:
-			(RTpositions, start, end) = read_csv_by_line(path)
+			(RTpositions_plus, RTpositions_minus, start, end) = read_csv_by_line(path)
 			
 			# Histogram of RT stops across gene body
-			bins=range(start,end+2,1)
-			hist,bins=np.histogram(RTpositions,bins=bins)
-			width=0.7*(bins[1]-bins[0])
-			center=(bins[:-1] + bins[1:])/2
-			# Normalize
-			histPlot=np.array(hist,dtype=float)
-			histPlot=np.array(histPlot/float(len(RTpositions)),dtype=float)
-				
-			# Make sure same length
-			sequence=repeat_genome_bases[start:end+1]
-			hist = hist[:len(sequence)]
-			histPlot = hist[:len(sequence)]
-			center = center[:len(sequence)]
+			bins = range(start, end+2, 1)
+			width = 0.7*(bins[1]-bins[0])
+			(hist_plus, histPlot_plus, sequence_plus, center_plus) = get_histogram(RTpositions_plus, bins)
+			(hist_minus, histPlot_minus, sequence_minus, center_minus) = get_histogram(RTpositions_minus, bins)
 			
 			# Subplot
-			plt.subplot(plotDim,plotDim,i+1)
-			plt.bar(center,histPlot,align='center',width=width,color='blue',alpha=0.45)
-			plt.tick_params(axis='x',labelsize=2.5) 
-			plt.tick_params(axis='y',labelsize=2.5)  
-			plt.title('RT stops for %s: %s'%(name,len(RTpositions)),fontsize=5)
-			plt.xlim(start,end)  
+			plt.subplot(plotDim, plotDim, i+1)
+			plt.bar(center_plus, histPlot_plus, align='center', width=width, color='blue', alpha=0.45)
+			plt.tick_params(axis='x', labelsize=2.5) 
+			plt.tick_params(axis='y', labelsize=2.5)  
+			plt.title('RT stops for %s: %s'%(name, len(RTpositions_plus)), fontsize=5)
+			plt.xlim(start, end)  
+			
 			# Record data
-			storageDF=pd.DataFrame()
-			storageDF['Sequence']=pd.Series(list(sequence))
-			readsPerBase=np.array(list(hist))
-			readsPerBaseNorm=np.array(list(histPlot))
-			storageDF['RT_stops']=readsPerBase
-			storageDF['RT_stops_norm']=readsPerBaseNorm			  
-			outfilepathToSave=outfilepath +'/PlotData_RepeatRNAHist_%s'%name
+			storageDF = pd.DataFrame()
+			storageDF['Sequence'] = pd.Series(list(sequence_plus))
+			storageDF['RT_stops'] = np.array(list(hist_plus))
+			storageDF['RT_stops_norm'] = np.array(list(histPlot_plus))	
+			storageDF['RT_stops_minus'] = np.array(list(hist_minus))
+			storageDF['RT_stops_minus_norm'] = np.array(list(histPlot_minus))	  
+			outfilepathToSave = outfilepath + '/PlotData_RepeatRNAHist_%s'%name
 			storageDF.to_csv(outfilepathToSave)
-			i+=1
+			i += 1
 		except:
 			print "No reads for repeatRNA %s"%name			  
 	plt.tight_layout()
@@ -1389,12 +1398,8 @@ def plot_rDNA(outfilepath,sampleName):
 	plt.subplot2grid((3,3),(0,0),colspan=3)
 	name='rDNA'
 	rDNA=glob.glob(outfilepath + 'PlotData_RepeatRNAreads_rDNA')
-	# hits_per_rep=pd.read_csv(rDNA[0])
-	# RTpositions=hits_per_rep['RT_stop']
-	# start=hits_per_rep.loc[0,'Repeat_Start']
-	# end=hits_per_rep.loc[0,'Repeat_End']
 	
-	(RTpositions, start, end) = read_csv_by_line(rDNA[0])
+	(RTpositions, RTpositions_minus, start, end) = read_csv_by_line(rDNA[0])
 
 	bins=range(start,end+2,1)
 	hist,bins=np.histogram(RTpositions,bins=bins)
