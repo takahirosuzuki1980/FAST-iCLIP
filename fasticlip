@@ -19,6 +19,18 @@ global outfilepath
 global logFile
 global logOpen
 
+### Checking environment variables ###
+home = os.environ.get("FASTICLIP_PATH")
+if not home and glob.glob("docs/"):
+	home = os.getcwd()
+if not home:
+	print "Error: Environment variable FASTICLIP_PATH not found. Please set it to the FAST-iCLIP installation directory."
+	exit()
+if not glob.glob(home + "/docs/"):
+	print "Error: docs folder not inside FASTICLIP_PATH. Make sure this environment variable is set correctly, or \
+	that you have run ./configure inside the installation directory."
+	exit()
+
 ### Parsing arguments ###
 
 parser = argparse.ArgumentParser(description="FAST-iCLIP: a pipeline to process iCLIP data", epilog="Example: fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results")
@@ -67,6 +79,7 @@ if not glob.glob(outfilepath): os.system("mkdir " + outfilepath)
 logFile=outfilepath + "runLog"
 logOpen=open(logFile, 'w')
 
+
 ### Parameters ###
 iCLIP3pBarcode = args.a # Barcode sequence to trim from reads.
 mapq = args.m # Minimum MAPQ score allowed
@@ -104,9 +117,9 @@ else:
 	minpass_rep = min(minpass_rep, nsamp) 
 
 if org == 'human':
-	repeat_index=os.getcwd() + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
-	repeatGenomeBuild=os.getcwd()+'/docs/hg19/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
-	repeatAnnotation=os.getcwd()+'/docs/hg19/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	repeat_index=home + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=home+'/docs/hg19/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=home+'/docs/hg19/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
 	start18s=3657
 	end18s=5527
 	start5s=6623
@@ -114,28 +127,28 @@ if org == 'human':
 	start28s=7935
 	end28s=12969
 	rRNAend=13314
-	index=os.getcwd() + '/docs/hg19/hg19/hg19' # bt2 index for mapping.
+	index=home + '/docs/hg19/hg19/hg19' # bt2 index for mapping.
 	index_tag='hg19' # Name of bt2 index.
-	genomeFile=os.getcwd()+'/docs/hg19/human.hg19.genome' # Genome file for bedGraph, etc.
+	genomeFile=home+'/docs/hg19/human.hg19.genome' # Genome file for bedGraph, etc.
 	genomeForCLIPper='-shg19' # Parameter for CLIPper.
-	blacklistregions=os.getcwd()+'/docs/hg19/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
-	repeatregions=os.getcwd()+'/docs/hg19/repeat_masker.bed' # Repeat masker.
-	geneAnnot=glob.glob(os.getcwd()+'/docs/hg19/genes_types/*') # List of genes by type.
-	snoRNAmasker=os.getcwd()+'/docs/hg19/snoRNA_reference/snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
-	miRNAmasker=os.getcwd()+'/docs/hg19/miR_sort_clean.bed' # miRNA masker file.
-	fivePUTRBed=os.getcwd()+'/docs/hg19/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	threePUTRBed=os.getcwd()+'/docs/hg19/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	exonBed=os.getcwd()+'/docs/hg19/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	utrFile=os.getcwd()+'/docs/hg19/hg19_ensembl_UTR_annotation.txt' # UTR annotation file.
-	genesFile=os.getcwd()+'/docs/hg19/hg19_ensembl_genes.txt' # Gene annotation file.
-	sizesFile=os.getcwd()+'/docs/hg19/hg19.sizes' # Genome sizes file. 
-	snoRNAindex=os.getcwd()+'/docs/hg19/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
-	tRNAindex=os.getcwd()+'/docs/hg19/trna/tRNA_hg19'
-	geneStartStopRepo=os.getcwd()+'/docs/hg19/all_genes.txt'
+	blacklistregions=home+'/docs/hg19/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
+	repeatregions=home+'/docs/hg19/repeat_masker.bed' # Repeat masker.
+	geneAnnot=glob.glob(home+'/docs/hg19/genes_types/*') # List of genes by type.
+	snoRNAmasker=home+'/docs/hg19/snoRNA_reference/snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
+	miRNAmasker=home+'/docs/hg19/miR_sort_clean.bed' # miRNA masker file.
+	fivePUTRBed=home+'/docs/hg19/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	threePUTRBed=home+'/docs/hg19/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	exonBed=home+'/docs/hg19/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	utrFile=home+'/docs/hg19/hg19_ensembl_UTR_annotation.txt' # UTR annotation file.
+	genesFile=home+'/docs/hg19/hg19_ensembl_genes.txt' # Gene annotation file.
+	sizesFile=home+'/docs/hg19/hg19.sizes' # Genome sizes file. 
+	snoRNAindex=home+'/docs/hg19/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
+	tRNAindex=home+'/docs/hg19/trna/tRNA_hg19'
+	geneStartStopRepo=home+'/docs/hg19/all_genes.txt'
 elif org == 'mouse':
-	repeat_index=os.getcwd() + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
-	repeatGenomeBuild=os.getcwd()+'/docs/mm9/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
-	repeatAnnotation=os.getcwd()+'/docs/mm9/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	repeat_index=home + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=home+'/docs/mm9/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=home+'/docs/mm9/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
 	start18s=4007
 	end18s=5876
 	start5s=6877
@@ -143,24 +156,24 @@ elif org == 'mouse':
 	start28s=8123
 	end28s=12836
 	rRNAend=13401
-	index=os.getcwd() + '/docs/mm9/mm9/mm9' # bt2 index for mapping.
+	index=home + '/docs/mm9/mm9/mm9' # bt2 index for mapping.
 	index_tag='mm9' # Name of bt2 index.
-	genomeFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome file for bedGraph, etc.
+	genomeFile=home+'/docs/mm9/mm9.sizes' # Genome file for bedGraph, etc.
 	genomeForCLIPper='-smm9' # Parameter for CLIPper.
-	blacklistregions=os.getcwd()+'/docs/mm9/mm9-blacklist.bed' # Blacklist masker.
-	repeatregions=os.getcwd()+'/docs/mm9/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
-	geneAnnot=glob.glob(os.getcwd()+'/docs/mm9/genes_types/*') # List of genes by type. 
-	snoRNAmasker=os.getcwd()+'/docs/mm9/snoRNA_reference/mm9_snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
-	miRNAmasker=os.getcwd()+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
-	fivePUTRBed=os.getcwd()+'/docs/mm9/mm9_5pUTR.bed' # UTR annotation file.
-	threePUTRBed=os.getcwd()+'/docs/mm9/mm9_3pUTR.bed' # UTR annotation file. 
-	exonBed=os.getcwd()+'/docs/mm9/mm9_exons.bed' # UTR annotation file. 
-	utrFile=os.getcwd()+'/docs/mm9/mm9_ensembl_UTR_annotation.txt' # UTR annotation file. 
-	genesFile=os.getcwd()+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
-	sizesFile=os.getcwd()+'/docs/mm9/mm9.sizes' # Genome sizes file. 
-	snoRNAindex=os.getcwd()+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
-	tRNAindex=os.getcwd()+'/docs/mm9/tRNA/tRNA_mm9'
-	geneStartStopRepo=os.getcwd()+'/docs/mm9/all_genes.txt'
+	blacklistregions=home+'/docs/mm9/mm9-blacklist.bed' # Blacklist masker.
+	repeatregions=home+'/docs/mm9/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
+	geneAnnot=glob.glob(home+'/docs/mm9/genes_types/*') # List of genes by type. 
+	snoRNAmasker=home+'/docs/mm9/snoRNA_reference/mm9_snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
+	miRNAmasker=home+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
+	fivePUTRBed=home+'/docs/mm9/mm9_5pUTR.bed' # UTR annotation file.
+	threePUTRBed=home+'/docs/mm9/mm9_3pUTR.bed' # UTR annotation file. 
+	exonBed=home+'/docs/mm9/mm9_exons.bed' # UTR annotation file. 
+	utrFile=home+'/docs/mm9/mm9_ensembl_UTR_annotation.txt' # UTR annotation file. 
+	genesFile=home+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
+	sizesFile=home+'/docs/mm9/mm9.sizes' # Genome sizes file. 
+	snoRNAindex=home+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
+	tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm9'
+	geneStartStopRepo=home+'/docs/mm9/all_genes.txt'
 
 ### start running pipeline ###
 now=datetime.datetime.now()
@@ -216,7 +229,7 @@ def trim(reads, adapter3p, l, n):
 	# Usage: Trims a specified number of bases from the 5' end of each read.
 	# Input: List of fastq files.
 	# Output: List of 5p trimmed files.
-	program = os.getcwd() + "/bin/fasta_to_fastq.pl"
+	program = home + "/bin/fasta_to_fastq.pl"
 	trimmedReads = []
 	for inread in reads:
 		outread = inread.replace("_nodup.fasta", "_trimmed.fastq")
@@ -617,7 +630,7 @@ def makeBedGraph(lowFDRreads,sizesFile):
 	# Input: BedFile.
 	# Output: BedGraph file.
 	program='genomeCoverageBed'
-	program2=os.getcwd() + '/bin/bedGraphToBigWig'
+	program2=home + '/bin/bedGraphToBigWig'
 	cleanBed=cleanBedFile(lowFDRreads)
 	outname=cleanBed.replace('.bed','.bedgraph')
 	outname2=cleanBed.replace('.bed','.bw')
@@ -797,7 +810,7 @@ def getClusterIntensity(bedGraph,centerCoordinates):
 	# Usage: Generate a matrix of read itensity values around CLIPper cluster center.
 	# Input: BedGraph and cluster center file.
 	# Output: Generates a matrix, which is passed into R.
-	program=os.getcwd() + '/bin/grep_chip-seq_intensity.pl'
+	program=home + '/bin/grep_chip-seq_intensity.pl'
 	program2='wait'
 	proc=subprocess.Popen(['perl',program, centerCoordinates, bedGraph],)
 	proc.communicate()
@@ -908,7 +921,7 @@ if os.stat(intronreads).st_size > 0:
 gene_binding_by_region()
 
 def makeTab(bedGraph,genesFile,sizesFile):
-	program = os.getcwd() + '/bin/bedGraph2tab.pl'
+	program = home + '/bin/bedGraph2tab.pl'
 	program2 = 'wait'
 	outfile=bedGraph.replace('.bedgraph','.tab')
 	if glob.glob(outfile): return outfile
@@ -922,7 +935,7 @@ def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
 	# Usage: Generate a matrix of read intensity values across gene body.
 	# Input: BedGraph.
 	# Output: Generates two matrices.
-	program= os.getcwd() + '/bin/averageGraph_scaled_tab.pl'
+	program= home + '/bin/averageGraph_scaled_tab.pl'
 	program2 = 'wait'
 	tabFile=makeTab(bedGraph,genesFile,sizesFile)
 	outhandle=tabFile.replace('.tab','_UTRs')
