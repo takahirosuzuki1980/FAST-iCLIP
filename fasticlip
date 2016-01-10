@@ -383,14 +383,15 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 	# Output: Bedfile with repeat regions removed.
 
 	masked=[]
+	in_no_repeat_RTstop_collapsed=[]
 	for bedIn in gen_bed:
 		no_blacklist = bedIn.replace('.bed', '_noBlacklist.bed')
 		no_repeat = bedIn.replace('.bed', '_noRepeat.bed')
 		repeat = bedIn.replace('.bed', '_repeat.bed')
 			
-		cmd_1 = "bedtools intersect -a {} -b {} -v > {}".format(bedIn, blacklistregions, no_blacklist)
-		cmd_2 = "bedtools intersect -a {} -b {} -v -s > {}".format(no_blacklist, repeatregions, no_repeat)
-		cmd_3 = "bedtools intersect -a {} -b {} -wb -s > {}".format(no_blacklist, repeatregions, repeat)
+		cmd_1 = "bedtools intersect -a {} -b {} -v -sorted > {}".format(bedIn, blacklistregions, no_blacklist)
+		cmd_2 = "bedtools intersect -a {} -b {} -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
+		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s > {}".format(no_blacklist, repeatregions, repeat)
 
 		print cmd_1
 		os.system(cmd_1)
@@ -400,23 +401,27 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 		os.system(cmd_3)
 		masked.append(no_repeat)
 		
-		#For some extra testing
+		#For some extra testing & running threshold vs correlation plot
 		#Get 5' ends (3' for neg strand) and count table of collapsed RT stop positions
-		#Run correlation table with R script
 		no_repeat_RTstop = bedIn.replace('.bed', '_noRepeat_fiveprime.bed')		
-		no_repeat_RTstop_collapsed = bedIn.replace('.bed', '_noRepeat_fiveprime_collapsed.txt')		
+		no_repeat_RTstop_collapsed = bedIn.replace('.bed', '_noRepeat_fiveprime_collapsed.txt')	
+		in_no_repeat_RTstop_collapsed.append(no_repeat_RTstop_collapsed)
 		cmd_4 =	"cat {} | awk -F\"\\t\" ' BEGIN {{ OFS=\"\\t\" }} $6==\"+\"{{ print $1, $2, $2+1, $4, $5, $6 }} $6==\"-\" {{ print $1, $3-1, $3, $4, $5, $6 }} ' | cut -f1,2,3,4,5,6 > {} ".format(no_repeat, no_repeat_RTstop)
 		cmd_5 =	"cat {} | cut -f1,2,6 | awk ' BEGIN {{ OFS=\"\\t\" }} {{ a[$0]++ }} END {{ for(i in a) {{ print i, a[i] }} }} ' > {} ".format(no_repeat_RTstop, no_repeat_RTstop_collapsed)
-		cmd_6 = "Rscript correlation_filter.R {]".format(no_repeat_RTstop_collapsed)
-		print cmd_1
+		
+		print cmd_4
 		os.system(cmd_4)
-		print cmd_2
+		print cmd_5
 		os.system(cmd_5)
-		print cmd_3
-		os.system(cmd_6)
-				
-	return masked
 	
+	#Run correlation table with R script
+	in_no_repeat_RTstop_collapsed = ' '.join(in_no_repeat_RTstop_collapsed)
+	cmd_6 = "Rscript correlation_filter.R {]".format(in_no_repeat_RTstop_collapsed)
+	print cmd_6
+	os.system(cmd_6)
+			
+	return masked
+
 print "\nRun repeat and blacklist region masker."
 logOpen.write("Run repeat and blacklist masker.\n")
 gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
