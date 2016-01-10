@@ -375,7 +375,7 @@ def trna_isotype_count(trna_samfiles):
 		
 print "\nRun tRNA isotype counting."
 logOpen.write("Run tRNA isotype counting.\n")
-#trna_readlist = trna_isotype_count(trna_sam)
+trna_readlist = trna_isotype_count(trna_sam)
 
 def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 	# Usage: Remove repeat regions from bedfile following mapping.
