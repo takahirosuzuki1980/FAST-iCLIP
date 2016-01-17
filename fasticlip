@@ -39,6 +39,7 @@ parser.add_argument('--trimmed', action='store_true', help="flag if files are al
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
 group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
+parser.add_argument('--clippper', action='store_true', help="also run CLIPper on data")
 parser.add_argument('-n', metavar='NAME', help="Name of output directory", required=True)
 parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output directory will be made", required=True)
 parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 14.", default=14)
@@ -89,6 +90,7 @@ l = args.l +  args.f - 1 # Minimum length of read + 5' adapter
 iCLIP5pBasesToTrim=args.f # Number of reads to trim from 5' end of clip reads + 1 (this number represents the first base kept)
 k = '1' # k=N distinct, valid alignments for each read in bt2 mapping.
 expand = 15 # Bases to expand around RT position after RT stops are merged.
+run_clipper = args.clipper
 CLIPPERoutNameDelim = '_' # Delimiter that for splitting gene name in the CLIPper windows file.
 
 nsamp = len(reads)
@@ -289,9 +291,11 @@ def runBowtie(processed_reads, repeat_index, trna_index, genome_index):
 		os.system(cmd)
 		
 		cmd = "bowtie2 -p 8 -x {} {} -S {} > {} 2>&1".format(genome_index, trna_unmapped, genome_mapped, genome_mapped + '_stats.txt')
-		#alignment with STAR instead to align splice junctions
-		#TODO: tune parameters before switching to star  
+		
+		# TODO: alignment with STAR instead to align splice junctions
+		# need to tune parameters before switching to star  
 		#cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad NoSharedMemory --readFilesIn {} --outSAMtype SAM Unsorted --outFileNamePrefix {} --outFilterMultimapScoreRange 0 --outFilterMultimapNmax 500 --alignEndsType EndToEnd --seedSearchLmax 10 --outFilterMismatchNmax 3 --outFilterMismatchNoverLmax 0.05 --outReadsUnmapped Fastx --outSAMattributes All".format(genome_index, trna_unmapped, genome_mapped)
+		
 		print cmd
 		os.system(cmd)
 		
@@ -349,7 +353,7 @@ iclipro = run_iclipro(gen_sam)
 
 def trna_isotype_count(trna_samfiles):
 	# Usage: get reads that are unique to only one AA of tRNA
-	retain reads that are uniquely mappable to one isotype of tRNA and make count table per isotype
+	# retain reads that are uniquely mappable to one isotype of tRNA and make count table per isotype
 	# Input: Sam files
 	# Output: 1) list of de-dupped tRNA read names (to plug into file line counting later on in fig 1), 2) count table for isotypes
 	
@@ -401,24 +405,24 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 		os.system(cmd_3)
 		masked.append(no_repeat)
 		
-		#For some extra testing & running threshold vs correlation plot
-		#Get 5' ends (3' for neg strand) and count table of collapsed RT stop positions
-		no_repeat_RTstop = bedIn.replace('.bed', '_noRepeat_fiveprime.bed')		
-		no_repeat_RTstop_collapsed = bedIn.replace('.bed', '_noRepeat_fiveprime_collapsed.txt')	
-		in_no_repeat_RTstop_collapsed.append(no_repeat_RTstop_collapsed)
-		cmd_4 =	"cat {} | awk -F\"\\t\" ' BEGIN {{ OFS=\"\\t\" }} $6==\"+\"{{ print $1, $2, $2+1, $4, $5, $6 }} $6==\"-\" {{ print $1, $3-1, $3, $4, $5, $6 }} ' | cut -f1,2,3,4,5,6 > {} ".format(no_repeat, no_repeat_RTstop)
-		cmd_5 =	"cat {} | cut -f1,2,6 | awk ' BEGIN {{ OFS=\"\\t\" }} {{ a[$0]++ }} END {{ for(i in a) {{ print i, a[i] }} }} ' > {} ".format(no_repeat_RTstop, no_repeat_RTstop_collapsed)
+		# #For some extra testing & running threshold vs correlation plot
+		# #Get 5' ends (3' for neg strand) and count table of collapsed RT stop positions
+		# no_repeat_RTstop = bedIn.replace('.bed', '_noRepeat_fiveprime.bed')		
+		# no_repeat_RTstop_collapsed = bedIn.replace('.bed', '_noRepeat_fiveprime_collapsed.txt')	
+		# in_no_repeat_RTstop_collapsed.append(no_repeat_RTstop_collapsed)
+		# cmd_4 =	"cat {} | awk -F\"\\t\" ' BEGIN {{ OFS=\"\\t\" }} $6==\"+\"{{ print $1, $2, $2+1, $4, $5, $6 }} $6==\"-\" {{ print $1, $3-1, $3, $4, $5, $6 }} ' | cut -f1,2,3,4,5,6 > {} ".format(no_repeat, no_repeat_RTstop)
+		# cmd_5 =	"cat {} | cut -f1,2,6 | awk ' BEGIN {{ OFS=\"\\t\" }} {{ a[$0]++ }} END {{ for(i in a) {{ print i, a[i] }} }} ' > {} ".format(no_repeat_RTstop, no_repeat_RTstop_collapsed)
 		
-		print cmd_4
-		os.system(cmd_4)
-		print cmd_5
-		os.system(cmd_5)
+		# print cmd_4
+		# os.system(cmd_4)
+		# print cmd_5
+		# os.system(cmd_5)
 	
-	#Run correlation table with R script
-	in_no_repeat_RTstop_collapsed = ' '.join(in_no_repeat_RTstop_collapsed)
-	cmd_6 = "Rscript correlation_filter.R {]".format(in_no_repeat_RTstop_collapsed)
-	print cmd_6
-	os.system(cmd_6)
+	# #Run correlation table with R script
+	# in_no_repeat_RTstop_collapsed = ' '.join(in_no_repeat_RTstop_collapsed)
+	# cmd_6 = "Rscript correlation_filter.R {]".format(in_no_repeat_RTstop_collapsed)
+	# print cmd_6
+	# os.system(cmd_6)
 			
 	return masked
 
@@ -461,8 +465,7 @@ def modifyNegativeStrand(negativeStrandReads):
 		with open(negativeRead, 'r') as infile:
 			for line in infile:	
 				chrom,start,end,name,quality,strand=line.strip().split('\t')
-				#neg_edit.write('\t'.join((chrom,end,str(int(end)+30),name,quality,strand))+'\n') 
-				neg_edit.write('\t'.join((chrom,end-1,str(int(end)+29),name,quality,strand))+'\n') #end-1 instead of end
+				neg_edit.write('\t'.join((chrom,end-1,str(int(end)+29),name,quality,strand))+'\n') # end-1 since it's [start, end)
 	return negativeStrandEdit
 
 def isolate5prime(strandedReads):
@@ -566,117 +569,121 @@ mergeRT(negativeRTstop, negMerged, negMerged + '_stats', minpass_nr, threshold_n
 fileCat(negAndPosMerged,[posMerged,negMerged])
 fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
+if not run_clippper: 
+	CLIPPERlowFDR = negAndPosMerged
+	# CLIPpeGeneList  # list of genes; commented out all things making this
+	# CLIPperOutBed  # cluster file; we're not making this, and this is not used anywhere else
+else:
+	def runCLIPPER(RTclusterfile,genome,genomeFile):
+		# Useage: Process the mergedRT file and pass through CLIPper FDR script.
+		# Input: Merged RT file.
+		# Output: CLIPper input (.bed) file and output file.
+		program='bedToBam'
+		program2='samtools'
+		program3='bamToBed'
+		program4='clipper'
+		
+		bamfile=RTclusterfile.replace('.bed','.bam')  
+		outfh=open(bamfile, 'w')
+		proc=subprocess.Popen([program,'-i',RTclusterfile,'-g',genomeFile],stdout=outfh)
+		proc.communicate()
+		
+		bamfile_sort=bamfile.replace('.bam','.srt')
+		proc2=subprocess.Popen([program2,'sort',bamfile,bamfile_sort])
+		proc2.communicate()
+		
+		bamfile_sorted=bamfile_sort+'.bam'
+		mapStats=bamfile_sorted.replace('.srt.bam','.mapStats.txt') 
+		outfh=open(mapStats, 'w')
+		proc3=subprocess.Popen([program2,'flagstat',bamfile_sorted],stdout=outfh)
+		proc3.communicate()
+		
+		proc4=subprocess.Popen([program2,'index',bamfile_sorted])
+		proc4.communicate()
+		
+		CLIPPERin=bamfile_sorted.replace('.srt.bam','_CLIPPERin.bed') 
+		outfh=open(CLIPPERin, 'w')
+		proc5=subprocess.Popen([program3,'-i',bamfile_sorted],stdout=outfh)
+		proc5.communicate()
+		
+		CLIPPERout_dup=CLIPPERin.replace('_CLIPPERin.bed','_CLIP_clusters_dupl') 
+		proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout_dup],)
+		proc6.communicate()
+		outfh.close()
+		
+		# added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
+		CLIPPERout=CLIPPERout_dup.replace('_CLIP_clusters_dupl','_CLIP_clusters') 
+		ifile = open(CLIPPERout_dup,'r')
+		reader = csv.reader(ifile, 'textdialect')
+		ofile = open(CLIPPERout,'w')
+		writer = csv.writer(ofile, 'textdialect')
+		currRow = ['chr1',0,0,0,0,'+']
+		for row in reader:
+			currStart = int(currRow[1])
+			currEnd = int(currRow[2])
+			newStart = int(row[1])
+			newEnd = int(row[2])
+			if currStart==newStart and currEnd==newEnd: continue #duplicates
+			if math.fabs(newStart-currEnd) <= 15 and currRow[5]==row[5]: #overlap and same strand
+				if int(currRow[1]) != 0: #not the first one
+					currRow[2]=newEnd #merge the two adjacent clusters
+			else: #not overlap
+				if int(currRow[1]) != 0:
+					writer.writerow(currRow)
+				currRow = row #cycle continues
+		writer.writerow(currRow) #fencepost
+		
+		ifile.close()
+		ofile.close()	
+		
+		return (CLIPPERin,CLIPPERout)
 
-def runCLIPPER(RTclusterfile,genome,genomeFile):
-	# Useage: Process the mergedRT file and pass through CLIPper FDR script.
-	# Input: Merged RT file.
-	# Output: CLIPper input (.bed) file and output file.
-	program='bedToBam'
-	program2='samtools'
-	program3='bamToBed'
-	program4='clipper'
-	
-	bamfile=RTclusterfile.replace('.bed','.bam')  
-	outfh=open(bamfile, 'w')
-	proc=subprocess.Popen([program,'-i',RTclusterfile,'-g',genomeFile],stdout=outfh)
-	proc.communicate()
-	
-	bamfile_sort=bamfile.replace('.bam','.srt')
-	proc2=subprocess.Popen([program2,'sort',bamfile,bamfile_sort])
-	proc2.communicate()
-	
-	bamfile_sorted=bamfile_sort+'.bam'
-	mapStats=bamfile_sorted.replace('.srt.bam','.mapStats.txt') 
-	outfh=open(mapStats, 'w')
-	proc3=subprocess.Popen([program2,'flagstat',bamfile_sorted],stdout=outfh)
-	proc3.communicate()
-	
-	proc4=subprocess.Popen([program2,'index',bamfile_sorted])
-	proc4.communicate()
-	
-	CLIPPERin=bamfile_sorted.replace('.srt.bam','_CLIPPERin.bed') 
-	outfh=open(CLIPPERin, 'w')
-	proc5=subprocess.Popen([program3,'-i',bamfile_sorted],stdout=outfh)
-	proc5.communicate()
-	
-	CLIPPERout_dup=CLIPPERin.replace('_CLIPPERin.bed','_CLIP_clusters_dupl') 
-	proc6=subprocess.Popen([program4,'--bam',bamfile_sorted,genome,'--outfile=%s'%CLIPPERout_dup],)
-	proc6.communicate()
-	outfh.close()
-	
-	# added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
-	CLIPPERout=CLIPPERout_dup.replace('_CLIP_clusters_dupl','_CLIP_clusters') 
-	ifile = open(CLIPPERout_dup,'r')
-	reader = csv.reader(ifile, 'textdialect')
-	ofile = open(CLIPPERout,'w')
-	writer = csv.writer(ofile, 'textdialect')
-	currRow = ['chr1',0,0,0,0,'+']
-	for row in reader:
-		currStart = int(currRow[1])
-		currEnd = int(currRow[2])
-		newStart = int(row[1])
-		newEnd = int(row[2])
-		if currStart==newStart and currEnd==newEnd: continue #duplicates
-		if math.fabs(newStart-currEnd) <= 15 and currRow[5]==row[5]: #overlap and same strand
-			if int(currRow[1]) != 0: #not the first one
-				currRow[2]=newEnd #merge the two adjacent clusters
-		else: #not overlap
-			if int(currRow[1]) != 0:
-				writer.writerow(currRow)
-			currRow = row #cycle continues
-	writer.writerow(currRow) #fencepost
-	
-	ifile.close()
-	ofile.close()	
-	
-	return (CLIPPERin,CLIPPERout)
+	def modCLIPPERout(CLIPPERin,CLIPPERout):
+		# Usage: Process the CLIPper output and isolate lowFDR reads based upon CLIPper windows.
+		# Input: .bed file passed into CLIPper and the CLIPper windows file.
+		# Output: Low FDR reads recovered using the CLIPer windows file, genes per cluster, gene list of CLIPper clusters, and CLIPper windows as .bed.
+		program='intersectBed'
+		CLIPperOutBed=CLIPPERout+'.bed'
+		CLIPpeReadsPerCluster=CLIPPERout+'.readsPerCluster'
+		CLIPpeGeneList=CLIPPERout+'.geneNames'
+		f = open(CLIPperOutBed,'w')
+		g = open(CLIPpeReadsPerCluster,'w')
+		h = open(CLIPpeGeneList,'w')
+		with open(CLIPPERout,'r') as infile:
+			for line in infile:	
+				try:
+					# *** Old CLIPper includes a header that cannot be parsed. Handle this. ***
+					# *** Old CLIPper: Ensembl genes are parsed with <name>_<cluster>_<count>. ***
+					chrom,start,end,name,stats,strand,start_2,end_2 = line.strip().split('\t')
+					readPerCluster=name.strip().split('_')[2]
+					geneName=name.strip().split('_')[0].split('.')[0]
+					f.write('\t'.join((chrom,start,end,name,stats,strand))+'\n')
+					g.write((readPerCluster+'\n'))
+					h.write((geneName+'\n'))
+				except:
+					print ""
+		f.close()
+		g.close()
+		h.close()
+		CLIPPERlowFDR=CLIPperOutBed.replace('.bed','_lowFDRreads.bed')
+		outfh=open(CLIPPERlowFDR,'w')
+		# Intersect input reads with the CLIPper windows and report full result for both.
+		proc=subprocess.Popen([program,'-a',CLIPPERin,'-b',CLIPperOutBed,'-wa','-wb','-s'],stdout=outfh)
+		proc.communicate()
+		outfh.close()
+		return (CLIPPERlowFDR,CLIPpeReadsPerCluster,CLIPpeGeneList,CLIPperOutBed)
 
-def modCLIPPERout(CLIPPERin,CLIPPERout):
-	# Usage: Process the CLIPper output and isolate lowFDR reads based upon CLIPper windows.
-	# Input: .bed file passed into CLIPper and the CLIPper windows file.
-	# Output: Low FDR reads recovered using the CLIPer windows file, genes per cluster, gene list of CLIPper clusters, and CLIPper windows as .bed.
-	program='intersectBed'
-	CLIPperOutBed=CLIPPERout+'.bed'
-	CLIPpeReadsPerCluster=CLIPPERout+'.readsPerCluster'
-	CLIPpeGeneList=CLIPPERout+'.geneNames'
-	f = open(CLIPperOutBed,'w')
-	g = open(CLIPpeReadsPerCluster,'w')
-	h = open(CLIPpeGeneList,'w')
-	with open(CLIPPERout,'r') as infile:
-		for line in infile:	
-			try:
-				# *** Old CLIPper includes a header that cannot be parsed. Handle this. ***
-				# *** Old CLIPper: Ensembl genes are parsed with <name>_<cluster>_<count>. ***
-				chrom,start,end,name,stats,strand,start_2,end_2 = line.strip().split('\t')
-				readPerCluster=name.strip().split('_')[2]
-				geneName=name.strip().split('_')[0].split('.')[0]
-				f.write('\t'.join((chrom,start,end,name,stats,strand))+'\n')
-				g.write((readPerCluster+'\n'))
-				h.write((geneName+'\n'))
-			except:
-				print ""
-	f.close()
-	g.close()
-	h.close()
-	CLIPPERlowFDR=CLIPperOutBed.replace('.bed','_lowFDRreads.bed')
-	outfh=open(CLIPPERlowFDR,'w')
-	# Intersect input reads with the CLIPper windows and report full result for both.
-	proc=subprocess.Popen([program,'-a',CLIPPERin,'-b',CLIPperOutBed,'-wa','-wb','-s'],stdout=outfh)
-	proc.communicate()
-	outfh.close()
-	return (CLIPPERlowFDR,CLIPpeReadsPerCluster,CLIPpeGeneList,CLIPperOutBed)
+	print "Run CLIPper."
+	logOpen.write("Run CLIPper.\n")
 
-print "Run CLIPper."
-logOpen.write("Run CLIPper.\n")
-
-CLIPPERio=runCLIPPER(negAndPosMerged,genomeForCLIPper,genomeFile)
-CLIPPERin=CLIPPERio[0]
-CLIPPERout=CLIPPERio[1]
-clipperStats=modCLIPPERout(CLIPPERin,CLIPPERout)
-CLIPPERlowFDR=clipperStats[0] # Low FDR reads returned filtered through CLIPper windows
-CLIPpeReadsPerCluster=clipperStats[1] # Number of reads per CLIPper cluster
-CLIPpeGeneList=clipperStats[2] # Gene names returned from the CLIPper file
-CLIPperOutBed=clipperStats[3] # CLIPper windows as a bed file
+	CLIPPERio=runCLIPPER(negAndPosMerged,genomeForCLIPper,genomeFile)
+	CLIPPERin=CLIPPERio[0]
+	CLIPPERout=CLIPPERio[1]
+	clipperStats=modCLIPPERout(CLIPPERin,CLIPPERout)
+	CLIPPERlowFDR=clipperStats[0] # Low FDR reads returned filtered through CLIPper windows
+	CLIPpeReadsPerCluster=clipperStats[1] # Number of reads per CLIPper cluster
+	CLIPpeGeneList=clipperStats[2] # Gene names returned from the CLIPper file
+	CLIPperOutBed=clipperStats[3] # CLIPper windows as a bed file
 
 def getBedCenterPoints(inBed):
 	# Usage: Obtain center coordinates of bedFile.
@@ -696,16 +703,16 @@ def cleanBedFile(inBed):
 	# Input: BedFile.
 	# Output: Sorted bedFile with correct number of fields.
 	program='sortBed'
-	CLIPperOutBed=inBed.replace('.bed','_cleaned.bed')	
-	sortedBed=CLIPperOutBed.replace('_cleaned.bed','_cleaned_sorted.bed')
-	f=open(CLIPperOutBed, 'w')
+	cleanedBed=inBed.replace('.bed','_cleaned.bed')	
+	sortedBed=cleanedBed.replace('_cleaned.bed','_cleaned_sorted.bed')
+	f=open(cleanedBed, 'w')
 	with open(inBed, 'r') as infile:
 		for line in infile:	
 			elementList=line.strip().split('\t')
 			f.write('\t'.join((elementList[0],elementList[1],elementList[2],elementList[3],elementList[4],elementList[5],'\n')))
 	f.close()
 	outfh=open(sortedBed, 'w')
-	proc=subprocess.Popen([program, '-i', CLIPperOutBed],stdout=outfh)
+	proc=subprocess.Popen([program, '-i', cleanedBed],stdout=outfh)
 	proc.communicate()
 	outfh.close()
 	return sortedBed
@@ -791,8 +798,9 @@ def getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot):
 print "Partition reads by type."
 logOpen.write("Partition reads by type.\n")
 
-pathToGeneLists=getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot)
-pathToReadLists=getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+if run_clipper:
+	pathToGeneLists=getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot)
+	pathToReadLists=getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
 
 proteinCodingReads=outfilepath+'clipGenes_proteinCoding_LowFDRreads.bed'
 proteinBedGraph=makeBedGraph(proteinCodingReads,genomeFile)
@@ -875,39 +883,40 @@ if os.stat(bedFile_sno).st_size > 0:
 remaining=[f for f in glob.glob(outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
 countRemainingGeneTypes(remaining)
 
+if run_clipper:
+	print "Get binding intensity around cluster centers."
+	logOpen.write("Get binding intensity around cluster centers.\n")
+		
+	def makeClusterCenter(windowsFile):
+		# Usage: Generate a file of cluster centers.
+		# Input: Raw CLIPper output file.
+		# Output: File with coordinates for the center of each CLIPper cluster.
+		cleanBed = cleanBedFile(windowsFile)
+		centers=cleanBed.replace('.bed','.clusterCenter')
+		f = open(centers, 'w')
+		with open(cleanBed, 'r') as infile:
+			for line in infile:
+				elementList = line.strip().split('\t')
+				diff=abs(int((int(elementList[1])-int(elementList[2]))/2))
+				f.write(elementList[0]+'\t'+str(int(elementList[1])+diff)+'\t'+str(int(elementList[1])+diff+1)+'\n')
+		f.close()
+		return centers
 
-def makeClusterCenter(windowsFile):
-	# Usage: Generate a file of cluster centers.
-	# Input: Raw CLIPper output file.
-	# Output: File with coordinates for the center of each CLIPper cluster.
-	cleanBed = cleanBedFile(windowsFile)
-	centers=cleanBed.replace('.bed','.clusterCenter')
-	f = open(centers, 'w')
-	with open(cleanBed, 'r') as infile:
-		for line in infile:
-			elementList = line.strip().split('\t')
-			diff=abs(int((int(elementList[1])-int(elementList[2]))/2))
-			f.write(elementList[0]+'\t'+str(int(elementList[1])+diff)+'\t'+str(int(elementList[1])+diff+1)+'\n')
-	f.close()
-	return centers
-
-def getClusterIntensity(bedGraph,centerCoordinates):
-	# Usage: Generate a matrix of read itensity values around CLIPper cluster center.
-	# Input: BedGraph and cluster center file.
-	# Output: Generates a matrix, which is passed into R.
-	program=home + '/bin/grep_chip-seq_intensity.pl'
-	program2='wait'
-	proc=subprocess.Popen(['perl',program, centerCoordinates, bedGraph],)
-	proc.communicate()
-	logOpen.write("Waiting for Cluster Intensity file completion...\n")
-	proc2=subprocess.Popen(program2,shell=True)
-	proc2.communicate()
-	
-print "Get binding intensity around cluster centers."
-logOpen.write("Get binding intensity around cluster centers.\n")
-bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
-centerCoordinates=makeClusterCenter(CLIPperOutBed) 
-getClusterIntensity(bedGraphCLIPin,centerCoordinates)
+	def getClusterIntensity(bedGraph,centerCoordinates):
+		# Usage: Generate a matrix of read itensity values around CLIPper cluster center.
+		# Input: BedGraph and cluster center file.
+		# Output: Generates a matrix, which is passed into R.
+		program=home + '/bin/grep_chip-seq_intensity.pl'
+		program2='wait'
+		proc=subprocess.Popen(['perl',program, centerCoordinates, bedGraph],)
+		proc.communicate()
+		logOpen.write("Waiting for Cluster Intensity file completion...\n")
+		proc2=subprocess.Popen(program2,shell=True)
+		proc2.communicate()
+		
+	bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
+	centerCoordinates=makeClusterCenter(CLIPperOutBed) 
+	getClusterIntensity(bedGraphCLIPin,centerCoordinates)
 
 
 def extract_regions(bedIn, fivePUTRBed, threePUTRBed, exonBed):
@@ -1263,13 +1272,14 @@ fig1=plt.figure(1)
 
 plt.subplot(2,3,1) 
 plot_ReadAccounting(outfilepath,sampleName)
-plt.subplot(2,3,2)
-plot_ReadsPerCluster(outfilepath,sampleName)
-plt.subplot(2,3,3)
-plot_ClusterSizes(outfilepath,sampleName)
-plt.subplot(2,3,4)
-plot_clusterBindingIntensity(outfilepath,sampleName)
-ax=plt.subplot(2,3,5)
+if run_clipper:
+	plt.subplot(2,3,2)
+	plot_ReadsPerCluster(outfilepath,sampleName)
+	plt.subplot(2,3,3)
+	plot_ClusterSizes(outfilepath,sampleName)
+	plt.subplot(2,3,4)
+	plot_clusterBindingIntensity(outfilepath,sampleName)
+plt.subplot(2,3,5)
 plot_readsBymRNAregion(outfilepath,sampleName)
 plt.subplot(2,3,6)
 plot_BoundGeneTypes(outfilepath,sampleName)
