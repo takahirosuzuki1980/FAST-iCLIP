@@ -157,6 +157,7 @@ elif org == 'mouse':
 	end28s=12836
 	rRNAend=13401
 	index=home + '/docs/mm9/mm9/mm9' # bt2 index for mapping.
+	#index='/srv/gsfs0/projects/barna/index/star/gencode_mouse_m6' #STAR index for mapping splice junctions
 	index_tag='mm9' # Name of bt2 index.
 	genomeFile=home+'/docs/mm9/mm9.sizes' # Genome file for bedGraph, etc.
 	genomeForCLIPper='-smm9' # Parameter for CLIPper.
@@ -172,7 +173,8 @@ elif org == 'mouse':
 	genesFile=home+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
 	sizesFile=home+'/docs/mm9/mm9.sizes' # Genome sizes file. 
 	snoRNAindex=home+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
-	tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm9'
+	#tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm9'
+	tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm10_CCA' #tRNA's annotated for mm10 from gtRNAdb, CCA-tailed
 	geneStartStopRepo=home+'/docs/mm9/all_genes.txt'
 
 ### start running pipeline ###
@@ -287,6 +289,9 @@ def runBowtie(processed_reads, repeat_index, trna_index, genome_index):
 		os.system(cmd)
 		
 		cmd = "bowtie2 -p 8 -x {} {} -S {} > {} 2>&1".format(genome_index, trna_unmapped, genome_mapped, genome_mapped + '_stats.txt')
+		#alignment with STAR instead to align splice junctions
+		#TODO: tune parameters before switching to star  
+		#cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad NoSharedMemory --readFilesIn {} --outSAMtype SAM Unsorted --outFileNamePrefix {} --outFilterMultimapScoreRange 0 --outFilterMultimapNmax 500 --alignEndsType EndToEnd --seedSearchLmax 10 --outFilterMismatchNmax 3 --outFilterMismatchNoverLmax 0.05 --outReadsUnmapped Fastx --outSAMattributes All".format(genome_index, trna_unmapped, genome_mapped)
 		print cmd
 		os.system(cmd)
 		
@@ -322,6 +327,55 @@ logOpen.write("Run samtools.\n")
 rep_bed = run_samtools(rep_sam, mapq)
 trna_bed = run_samtools(trna_sam, mapq)
 gen_bed = run_samtools(gen_sam, mapq)
+#gen_bed = run_samtools(gen_sam, 255) #mapq coding for STAR to get only unique
+
+def run_iclipro(samfiles):
+	# Usage: Run iCLIPro for read overlap testing; http://www.biolab.si/iCLIPro/doc/
+	# Input: mapq filtered and sorted bam files
+	# Output: read overlap heatmaps and some summary stats
+	
+	for samfile in samfiles:
+		bamfile_sort = samfile.replace('.sam','_sorted.bam') 
+	
+		cmd_1 = "iCLIPro -r 50 -b 300 -g \"L18:18,L19:19,L20:20,L21:21,L22:22,L23:23,L24:24,L25:25,L26:26,L27:27,L28:28,L29:29,L30:30,L31:31,L32:32,L33:33,L34:34,L35:35,L36:36,L37:37,L38:38,L39:39,R:42\" -p \"L18-R,L19-R,L20-R,L21-R,L22-R,L23-R,L24-R,L25-R,L26-R,L27-R,L28-R,L29-R,L30-R,L31-R,L32-R,L33-R,L34-R,L35-R,L36-R,L37-R,L38-R,L39-R\" -o {} {} > {}".format(bamfile_sort + "_iclipro", bamfile_sort, bamfile_sort + "_iclipro_stats.txt")
+	
+		print cmd_1
+		os.system(cmd_1)
+
+	return 1
+
+logOpen.write("Run iCLIPro.\n")
+iclipro = run_iclipro(gen_sam)
+
+def trna_isotype_count(trna_samfiles):
+	# Usage: get reads that are unique to only one AA of tRNA
+	retain reads that are uniquely mappable to one isotype of tRNA and make count table per isotype
+	# Input: Sam files
+	# Output: 1) list of de-dupped tRNA read names (to plug into file line counting later on in fig 1), 2) count table for isotypes
+	
+	out_trna_reads = []
+	for samfile in trna_samfiles:
+		trna_isotype_reads = samfile.replace('.sam', '_trna_isotypes_reads.txt')
+		trna_isotype_counts = samfile.replace('.sam', '_trna_isotypes.counts')
+		trna_reads = samfile.replace('.sam', '_trnaReads.txt')
+		out_trna_reads.append(trna_reads)
+		
+		cmd_1 = "samtools view -S {} | awk -F'[\\t_]' ' {{ split($5,arr,\"-\"); print $1, arr[2] }} ' | sort -k1 -u | cut -f2 > {} ".format(samfile, trna_isotype_reads) #File with de-dupped reads per isotype
+		cmd_2 = "cat {} | awk ' $1 != prev {{ if (count==1) print line; count=0 }} {{prev=$1; line=$0; ++count }} END {{if (count==1) print }} ' | cut -d\" \" -f2 | sort | uniq -c > {} ".format(trna_isotype_reads, trna_isotype_counts) #Output reads unique to one isotype
+		cmd_3 = "cat {} | cut -f1 -d\" \" | sort -u > {} ".format(trna_isotype_reads, trna_reads) #Outputs dedupped list of read names mapping to tRNA
+		
+		print cmd_1
+		os.system(cmd_1)
+		print cmd_2
+		os.system(cmd_2)
+		print cmd_3
+		os.system(cmd_3)
+		
+	return(trna_reads)
+		
+print "\nRun tRNA isotype counting."
+logOpen.write("Run tRNA isotype counting.\n")
+trna_readlist = trna_isotype_count(trna_sam)
 
 def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 	# Usage: Remove repeat regions from bedfile following mapping.
@@ -329,6 +383,7 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 	# Output: Bedfile with repeat regions removed.
 
 	masked=[]
+	in_no_repeat_RTstop_collapsed=[]
 	for bedIn in gen_bed:
 		no_blacklist = bedIn.replace('.bed', '_noBlacklist.bed')
 		no_repeat = bedIn.replace('.bed', '_noRepeat.bed')
@@ -336,7 +391,8 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 			
 		cmd_1 = "bedtools intersect -a {} -b {} -v -sorted > {}".format(bedIn, blacklistregions, no_blacklist)
 		cmd_2 = "bedtools intersect -a {} -b {} -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
-		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s -f 0 > {}".format(no_blacklist, repeatregions, repeat)
+		cmd_3 = "bedtools intersect -a {} -b {} -wb -sorted -s > {}".format(no_blacklist, repeatregions, repeat)
+
 		print cmd_1
 		os.system(cmd_1)
 		print cmd_2
@@ -344,8 +400,28 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 		print cmd_3
 		os.system(cmd_3)
 		masked.append(no_repeat)
-	return masked
+		
+		#For some extra testing & running threshold vs correlation plot
+		#Get 5' ends (3' for neg strand) and count table of collapsed RT stop positions
+		no_repeat_RTstop = bedIn.replace('.bed', '_noRepeat_fiveprime.bed')		
+		no_repeat_RTstop_collapsed = bedIn.replace('.bed', '_noRepeat_fiveprime_collapsed.txt')	
+		in_no_repeat_RTstop_collapsed.append(no_repeat_RTstop_collapsed)
+		cmd_4 =	"cat {} | awk -F\"\\t\" ' BEGIN {{ OFS=\"\\t\" }} $6==\"+\"{{ print $1, $2, $2+1, $4, $5, $6 }} $6==\"-\" {{ print $1, $3-1, $3, $4, $5, $6 }} ' | cut -f1,2,3,4,5,6 > {} ".format(no_repeat, no_repeat_RTstop)
+		cmd_5 =	"cat {} | cut -f1,2,6 | awk ' BEGIN {{ OFS=\"\\t\" }} {{ a[$0]++ }} END {{ for(i in a) {{ print i, a[i] }} }} ' > {} ".format(no_repeat_RTstop, no_repeat_RTstop_collapsed)
+		
+		print cmd_4
+		os.system(cmd_4)
+		print cmd_5
+		os.system(cmd_5)
 	
+	#Run correlation table with R script
+	in_no_repeat_RTstop_collapsed = ' '.join(in_no_repeat_RTstop_collapsed)
+	cmd_6 = "Rscript correlation_filter.R {]".format(in_no_repeat_RTstop_collapsed)
+	print cmd_6
+	os.system(cmd_6)
+			
+	return masked
+
 print "\nRun repeat and blacklist region masker."
 logOpen.write("Run repeat and blacklist masker.\n")
 gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
@@ -385,7 +461,8 @@ def modifyNegativeStrand(negativeStrandReads):
 		with open(negativeRead, 'r') as infile:
 			for line in infile:	
 				chrom,start,end,name,quality,strand=line.strip().split('\t')
-				neg_edit.write('\t'.join((chrom,end,str(int(end)+30),name,quality,strand))+'\n')
+				#neg_edit.write('\t'.join((chrom,end,str(int(end)+30),name,quality,strand))+'\n') 
+				neg_edit.write('\t'.join((chrom,end-1,str(int(end)+29),name,quality,strand))+'\n') #end-1 instead of end
 	return negativeStrandEdit
 
 def isolate5prime(strandedReads):
