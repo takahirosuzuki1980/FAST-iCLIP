@@ -39,7 +39,7 @@ parser.add_argument('--trimmed', action='store_true', help="flag if files are al
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
 group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
-parser.add_argument('--clippper', action='store_true', help="also run CLIPper on data")
+parser.add_argument('--clipper', action='store_true', help="also run CLIPper on data")
 parser.add_argument('-n', metavar='NAME', help="Name of output directory", required=True)
 parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output directory will be made", required=True)
 parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 14.", default=14)
@@ -90,7 +90,7 @@ l = args.l +  args.f - 1 # Minimum length of read + 5' adapter
 iCLIP5pBasesToTrim=args.f # Number of reads to trim from 5' end of clip reads + 1 (this number represents the first base kept)
 k = '1' # k=N distinct, valid alignments for each read in bt2 mapping.
 expand = 15 # Bases to expand around RT position after RT stops are merged.
-run_clipper = args.clipper
+run_clipper = True if args.clipper else False
 CLIPPERoutNameDelim = '_' # Delimiter that for splitting gene name in the CLIPper windows file.
 
 nsamp = len(reads)
@@ -145,7 +145,7 @@ if org == 'human':
 	genesFile=home+'/docs/hg19/hg19_ensembl_genes.txt' # Gene annotation file.
 	sizesFile=home+'/docs/hg19/hg19.sizes' # Genome sizes file. 
 	snoRNAindex=home+'/docs/hg19/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
-	tRNAindex=home+'/docs/hg19/trna/tRNA_hg19'
+	tRNAindex=home+'/docs/hg19/trna/tRNA_hg19'  # this is now CCA tailed
 	geneStartStopRepo=home+'/docs/hg19/all_genes.txt'
 elif org == 'mouse':
 	repeat_index=home + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
@@ -175,8 +175,8 @@ elif org == 'mouse':
 	genesFile=home+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
 	sizesFile=home+'/docs/mm9/mm9.sizes' # Genome sizes file. 
 	snoRNAindex=home+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
-	#tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm9'
-	tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm10_CCA' #tRNA's annotated for mm10 from gtRNAdb, CCA-tailed
+	tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm9'  # this is now CCA tailed
+	#tRNAindex=home+'/docs/mm9/tRNA/tRNA_mm10_CCA' #tRNA's annotated for mm10 from gtRNAdb, CCA-tailed
 	geneStartStopRepo=home+'/docs/mm9/all_genes.txt'
 
 ### start running pipeline ###
@@ -362,10 +362,14 @@ def trna_isotype_count(trna_samfiles):
 		trna_isotype_reads = samfile.replace('.sam', '_trna_isotypes_reads.txt')
 		trna_isotype_counts = samfile.replace('.sam', '_trna_isotypes.counts')
 		trna_reads = samfile.replace('.sam', '_trnaReads.txt')
+		trna_sam_txt = samfile.replace('.sam', '.samtxt')
+		trna_histo = samfile.replace('.sam', '_histo.txt')
 		out_trna_reads.append(trna_reads)
 		
-		cmd_1 = "samtools view -S {} | awk -F'[\\t_]' ' {{ split($5,arr,\"-\"); print $1, arr[2] }} ' | sort -k1 -u | cut -f2 > {} ".format(samfile, trna_isotype_reads) #File with de-dupped reads per isotype
-		cmd_2 = "cat {} | awk ' $1 != prev {{ if (count==1) print line; count=0 }} {{prev=$1; line=$0; ++count }} END {{if (count==1) print }} ' | cut -d\" \" -f2 | sort | uniq -c > {} ".format(trna_isotype_reads, trna_isotype_counts) #Output reads unique to one isotype
+		# process the reads
+		
+		cmd_1 = "samtools view -S -F4 {} | awk -F'[\\t_]' ' {{ split($5,arr,\"-\"); print $1, arr[2] }} ' | sort -k1 -u | cut -f2 > {} ".format(samfile, trna_isotype_reads) #File with de-dupped reads per isotype; only taking mapped reads
+		cmd_2 = "cat {} | awk ' $1 != prev {{ if (count==1) print line; count=0 }} {{prev=$1; line=$0; ++count }} END {{if (count==1) print }} ' | cut -d\" \" -f2 | sort | uniq -c > {} ".format(trna_isotype_reads, trna_isotype_counts) #Output the number of reads unique to each isotype
 		cmd_3 = "cat {} | cut -f1 -d\" \" | sort -u > {} ".format(trna_isotype_reads, trna_reads) #Outputs dedupped list of read names mapping to tRNA
 		
 		print cmd_1
@@ -374,6 +378,32 @@ def trna_isotype_count(trna_samfiles):
 		os.system(cmd_2)
 		print cmd_3
 		os.system(cmd_3)
+		
+		# make histogram
+		cmd_4 = "samtools view -S -F4 {} > {} ".format(samfile, trna_sam_txt) #File with de-dupped reads per isotype; only taking mapped reads
+		print cmd_4
+		os.system(cmd_4)
+		
+		import csv
+		csv.register_dialect("textdialect", delimiter='\t')
+		
+		isotype_to_histo = defaultdict(lambda: defaultdict(lambda: 0))
+		ifile = open(trna_sam_txt, 'r')
+		reader = csv.reader(ifile, 'textdialect')
+		for row in reader:
+			isotype = row[2].split('-')[-1]
+			pos = int(row[3])
+			isotype_to_histo[isotype][pos] += 1
+		ifile.close()
+		
+		ofile = open(trna_histo, 'w')
+		writer = csv.writer(ofile, 'textdialect')
+		for trna in sorted(isotype_to_histo.keys()):
+			row = [trna]
+			for pos in range(80):
+				row.append(isotype_to_histo[trna][pos])
+			writer.writerow(row)
+		ofile.close()		
 		
 	return(trna_reads)
 		
@@ -465,7 +495,7 @@ def modifyNegativeStrand(negativeStrandReads):
 		with open(negativeRead, 'r') as infile:
 			for line in infile:	
 				chrom,start,end,name,quality,strand=line.strip().split('\t')
-				neg_edit.write('\t'.join((chrom,end-1,str(int(end)+29),name,quality,strand))+'\n') # end-1 since it's [start, end)
+				neg_edit.write('\t'.join((chrom, str(int(end) - 1), str(int(end) + 29), name, quality, strand)) + '\n') # end-1 since it's [start, end)
 	return negativeStrandEdit
 
 def isolate5prime(strandedReads):
@@ -569,7 +599,7 @@ mergeRT(negativeRTstop, negMerged, negMerged + '_stats', minpass_nr, threshold_n
 fileCat(negAndPosMerged,[posMerged,negMerged])
 fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
-if not run_clippper: 
+if not run_clipper: 
 	CLIPPERlowFDR = negAndPosMerged
 	# CLIPpeGeneList  # list of genes; commented out all things making this
 	# CLIPperOutBed  # cluster file; we're not making this, and this is not used anywhere else
@@ -694,7 +724,10 @@ def getBedCenterPoints(inBed):
 	with open(inBed, 'r') as infile:
 		for line in infile:	
 			elementList=line.strip().split('\t')
-			f.write('\t'.join((elementList[0],str(int(elementList[1])+expand),str(int(elementList[1])+expand+1),elementList[9],elementList[4],elementList[5],'\n')))
+			if run_clipper:
+				f.write('\t'.join((elementList[0], str(int(elementList[1])+expand), str(int(elementList[1])+expand+1), elementList[9], elementList[4], elementList[5], '\n')))
+			else:
+				f.write('\t'.join((elementList[0], str(int(elementList[1])+expand), str(int(elementList[1])+expand+1),  elementList[3], elementList[4], elementList[5], '\n')))
 	f.close()
 	return outBed
 
@@ -785,22 +818,46 @@ def compareLists(list1,list2,outname):
 	outfh.close()
 	return outputName
 
+def getList(list1, outname):
+	f=open(list1,'r')
+	commonGenes = set(f.readlines())
+	geneCategory=outname.split('.')[1]
+	outputName=outfilepath+'clipGenes_'+geneCategory
+	outfh=open(outputName,'w')
+	for gene in commonGenes:
+		outfh.write(gene)
+	outfh.close()
+	return outputName
+	
 def getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot):
 	# Usage: Get all genes listed under each type, compare to CLIPper targets.
 	# Input: .bed file passed into CLIPper and the CLIPper windows file.
 	# Output: Path to file containing all CLIPper genes of each type.
 	geneTypes=[]
 	for genepath in geneAnnot:
-		lowFDRgenes=compareLists(CLIPpeGeneList,genepath,os.path.split(genepath)[1])
+		lowFDRgenes = compareLists(CLIPpeGeneList, genepath, os.path.split(genepath)[1])
 		geneTypes=geneTypes+[lowFDRgenes]
 	return geneTypes
-
+	
+def getAllGeneTypes(geneAnnot):
+	# Usage: Get all genes listed under each type, compare to CLIPper targets.
+	# Input: .bed file passed into CLIPper and the CLIPper windows file.
+	# Output: Path to file containing all CLIPper genes of each type.
+	geneTypes=[]
+	for genepath in geneAnnot:
+		lowFDRgenes = getList(genepath, os.path.split(genepath)[1])
+		geneTypes=geneTypes+[lowFDRgenes]
+	return geneTypes
+	
 print "Partition reads by type."
 logOpen.write("Partition reads by type.\n")
 
 if run_clipper:
-	pathToGeneLists=getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot)
-	pathToReadLists=getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+	pathToGeneLists = getLowFDRGeneTypes(CLIPpeGeneList,geneAnnot)
+	pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+else:
+	pathToGeneLists = getAllGeneTypes(geneAnnot)
+	pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
 
 proteinCodingReads=outfilepath+'clipGenes_proteinCoding_LowFDRreads.bed'
 proteinBedGraph=makeBedGraph(proteinCodingReads,genomeFile)
@@ -1279,7 +1336,7 @@ if run_clipper:
 	plot_ClusterSizes(outfilepath,sampleName)
 	plt.subplot(2,3,4)
 	plot_clusterBindingIntensity(outfilepath,sampleName)
-plt.subplot(2,3,5)
+ax = plt.subplot(2,3,5)
 plot_readsBymRNAregion(outfilepath,sampleName)
 plt.subplot(2,3,6)
 plot_BoundGeneTypes(outfilepath,sampleName)
