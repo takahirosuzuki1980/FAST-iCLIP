@@ -18,6 +18,12 @@ else
 	echo >&2 "fastx_toolkit must be installed.  Aborting."; exit 1
 fi
 
+if $(type iCLIPro >/dev/null 2>&1); then
+	echo "iCLIPro installed"
+else 
+	echo >&2 "iCLIPro must be installed.  Aborting."; exit 1
+fi
+
 if $(type clipper >/dev/null 2>&1); then	
 	echo "CLIPper installed"
 else

@@ -1,0 +1,504 @@
+#!/usr/bin/env python
+# FAST-iCLIP
+
+import os, cmath, math, sys, glob, subprocess, re, argparse, shutil, datetime, csv
+from helper import *
+import cfg
+import numpy as np
+from matplotlib_venn import venn2
+import pandas as pd
+from collections import defaultdict
+from operator import itemgetter
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from optparse import OptionParser
+mpl.rcParams['savefig.dpi'] = 2 * mpl.rcParams['savefig.dpi']
+mpl.rcParams['path.simplify'] = True
+csv.register_dialect("textdialect",delimiter='\t')
+
+### Checking environment variables ###
+cfg.home = os.environ.get("FASTICLIP_PATH")
+if not cfg.home and glob.glob("docs/"):
+	cfg.home = os.getcwd()
+if not cfg.home:
+	print "Error: Environment variable FASTICLIP_PATH not found. Please set it to the FAST-iCLIP installation directory."
+	exit()
+if not glob.glob(cfg.home + "/docs/"):
+	print "Error: docs folder not inside FASTICLIP_PATH. Make sure this environment variable is set correctly, or \
+	that you have run ./configure inside the installation directory."
+	exit()
+
+### Parsing arguments ###
+parser = argparse.ArgumentParser(description="FAST-iCLIP: a pipeline to process iCLIP data", epilog="Example: fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results")
+parser.add_argument('-i', metavar='INPUT', nargs='+', help="Up to 4 input fastq or fastq.gz files separated by a space", required=True)
+parser.add_argument('--trimmed', action='store_true', help="flag if files are already trimmed")
+group = parser.add_mutually_exclusive_group()
+group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
+group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
+parser.add_argument('--clipper', action='store_true', help="also run CLIPper on data")
+parser.add_argument('-n', metavar='NAME', help="Name of output directory", required=True)
+parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output directory will be made", required=True)
+parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 14.", default=14)
+parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the end of each read. Default is AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.", default='AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG')
+parser.add_argument('-tr', metavar='REPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
+parser.add_argument('-tn', metavar='NONREPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
+parser.add_argument('-m', metavar='MAPQ', type=int, help="Minimum MAPQ (Bowtie alignment) score allowed. Default is 42.", default=42)
+parser.add_argument('-q', metavar='Q', type=int, help="Minimum average quality score allowed during read filtering. Default is 25.", default=25)
+parser.add_argument('-p', metavar='P', type=int, help="Percentage of bases that must have quality > q during read filtering. Default is 80.", default=80)
+parser.add_argument('-l', metavar='L', type=int, help="Minimum length of read. Default is 15.", default=15)
+parser.add_argument('--verbose', action='store_true', help="Print everything")
+
+# organism
+args = parser.parse_args()
+if not (args.hg19 or args.mm9):
+	print "Error: must include --hg19 or --mm9. Exiting."
+	exit()
+if args.hg19: org = 'human' 
+else: org = 'mouse'
+
+# input files
+reads = args.i
+for fn in reads:
+	if not glob.glob(fn):
+		print "Error: input file " + fn + " not accessible. Exiting."
+		exit()
+		
+# sample name and output directory
+cfg.sampleName = args.n
+cfg.outfilepath = args.o
+if not glob.glob(cfg.outfilepath):
+	print "Error: output directory " + cfg.outfilepath + " not accessible. Exiting."
+	exit()
+cfg.outfilepath = cfg.outfilepath + '/%s/'%cfg.sampleName
+if not glob.glob(cfg.outfilepath): os.system("mkdir " + cfg.outfilepath)
+
+# Create log and start pipeline
+cfg.logFile=cfg.outfilepath + "runLog"
+cfg.logOpen=open(cfg.logFile, 'w')
+
+
+### Parameters ###
+
+iCLIP3pBarcode = args.a # Barcode sequence to trim from reads.
+mapq = args.m # Minimum MAPQ score allowed
+q = args.q # Minimum quality score to keep during filtering.
+p = args.p # Percentage of bases that must have quality > q during filtering.
+l = args.l +  args.f - 1 # Minimum length of read + 5' adapter
+iCLIP5pBasesToTrim=args.f # Number of reads to trim from 5' end of clip reads + 1 (this number represents the first base kept)
+k = '1' # k=N distinct, valid alignments for each read in bt2 mapping.
+expand = 15 # Bases to expand around RT position after RT stops are merged.
+cfg.run_clipper = True if args.clipper else False
+cfg.verbose = True if args.verbose else False
+CLIPPERoutNameDelim = '_' # Delimiter that for splitting gene name in the CLIPper windows file.
+
+nsamp = len(reads)
+if not args.tn:
+	if nsamp == 1: threshold_nr = 4
+	elif nsamp == 2: threshold_nr = 3
+	else: threshold_nr = 2
+	minpass_nr = nsamp
+else:
+	try: [minpass_nr, threshold_nr] = [int(x) for x in args.tn.split(',')]
+	except: 
+		print "Nonrepeat threshold rule must be in form m,n where m,n are integers"
+		exit()
+	minpass_nr = min(minpass_nr, nsamp) 
+
+if not args.tr:
+	if nsamp == 1: threshold_rep = 4
+	elif nsamp == 2: threshold_rep = 3
+	else: threshold_rep = 2
+	minpass_rep = nsamp
+else:
+	try: [minpass_rep, threshold_rep] = [int(x) for x in args.tr.split(',')]
+	except: 
+		print "Repeat threshold rule must be in form m,n where m,n are integers."
+		exit()
+	minpass_rep = min(minpass_rep, nsamp) 
+
+if org == 'human':
+	repeat_index=cfg.home + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=cfg.home+'/docs/hg19/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=cfg.home+'/docs/hg19/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	start18s=3657
+	end18s=5527
+	start5s=6623
+	end5s=6779
+	start28s=7935
+	end28s=12969
+	rRNAend=13314
+	index=cfg.home + '/docs/hg19/hg19/hg19' # bt2 index for mapping.
+	index_tag='hg19' # Name of bt2 index.
+	genomeFile=cfg.home+'/docs/hg19/human.hg19.genome' # Genome file for bedGraph, etc.
+	genomeForCLIPper='-shg19' # Parameter for CLIPper.
+	blacklistregions=cfg.home+'/docs/hg19/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
+	repeatregions=cfg.home+'/docs/hg19/repeat_masker.bed' # Repeat masker.
+	geneAnnot=glob.glob(cfg.home+'/docs/hg19/genes_types/*') # List of genes by type.
+	snoRNAmasker=cfg.home+'/docs/hg19/snoRNA_reference/snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
+	miRNAmasker=cfg.home+'/docs/hg19/miR_sort_clean.bed' # miRNA masker file.
+	fivePUTRBed=cfg.home+'/docs/hg19/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	threePUTRBed=cfg.home+'/docs/hg19/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	exonBed=cfg.home+'/docs/hg19/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	utrFile=cfg.home+'/docs/hg19/hg19_ensembl_UTR_annotation.txt' # UTR annotation file.
+	genesFile=cfg.home+'/docs/hg19/hg19_ensembl_genes.txt' # Gene annotation file.
+	sizesFile=cfg.home+'/docs/hg19/hg19.sizes' # Genome sizes file. 
+	snoRNAindex=cfg.home+'/docs/hg19/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
+	tRNAindex=cfg.home+'/docs/hg19/trna/tRNA_hg19'  # this is now CCA tailed
+	geneStartStopRepo=cfg.home+'/docs/hg19/all_genes.txt'
+	geneStartStopRepoBed = cfg.home+'/docs/hg19/hg19_ensembl_genes_BED6.bed'
+elif org == 'mouse':
+	repeat_index=cfg.home + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=cfg.home+'/docs/mm9/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=cfg.home+'/docs/mm9/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	start18s=4007
+	end18s=5876
+	start5s=6877
+	end5s=7033
+	start28s=8123
+	end28s=12836
+	rRNAend=13401
+	index=cfg.home + '/docs/mm9/mm9/mm9' # bt2 index for mapping.
+	#index='/srv/gsfs0/projects/barna/index/star/gencode_mouse_m6' #STAR index for mapping splice junctions
+	index_tag='mm9' # Name of bt2 index.
+	genomeFile=cfg.home+'/docs/mm9/mm9.sizes' # Genome file for bedGraph, etc.
+	genomeForCLIPper='-smm9' # Parameter for CLIPper.
+	blacklistregions=cfg.home+'/docs/mm9/mm9-blacklist.bed' # Blacklist masker.
+	repeatregions=cfg.home+'/docs/mm9/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
+	geneAnnot=glob.glob(cfg.home+'/docs/mm9/genes_types/*') # List of genes by type. 
+	snoRNAmasker=cfg.home+'/docs/mm9/snoRNA_reference/mm9_snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
+	miRNAmasker=cfg.home+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
+	fivePUTRBed=cfg.home+'/docs/mm9/mm9_5pUTR.bed' # UTR annotation file.
+	threePUTRBed=cfg.home+'/docs/mm9/mm9_3pUTR.bed' # UTR annotation file. 
+	exonBed=cfg.home+'/docs/mm9/mm9_exons.bed' # UTR annotation file. 
+	utrFile=cfg.home+'/docs/mm9/mm9_ensembl_UTR_annotation.txt' # UTR annotation file. 
+	genesFile=cfg.home+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
+	sizesFile=cfg.home+'/docs/mm9/mm9.sizes' # Genome sizes file. 
+	snoRNAindex=cfg.home+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
+	tRNAindex=cfg.home+'/docs/mm9/tRNA/tRNA_mm9'  # this is now CCA tailed
+	geneStartStopRepo=cfg.home+'/docs/mm9/all_genes.txt'
+	geneStartStopRepoBed = cfg.home+'/docs/mm9/mm9_ensembl_genes_BED6.bed'
+
+### start running pipeline ###
+now=datetime.datetime.now()
+cfg.logOpen.write("Timestamp:%s\n"%str(now))
+cfg.logOpen.write("\n###Parameters used###\n")
+cfg.logOpen.write("3' barcode:%s\n'"%iCLIP3pBarcode)
+cfg.logOpen.write("Minimum quality score (q):%s\n"%q)
+cfg.logOpen.write("Percentage of bases with > q:%s\n"%p)
+cfg.logOpen.write("5' bases to trim:%s\n'"%iCLIP5pBasesToTrim)
+cfg.logOpen.write("k distinct, valid alignments for each read in bt2 mapping:%s\n"%k)
+cfg.logOpen.write("Threshold for minimum number of RT stops (repeat): %s samples with >= %s RT stops\n"%(minpass_rep, threshold_rep))
+cfg.logOpen.write("Threshold for minimum number of RT stops (nonrepeat): %s samples with >= %s RT stops\n"%(minpass_nr, threshold_nr))
+cfg.logOpen.write("Bases for expansion around conserved RT stops:%s\n"%expand)
+cfg.logOpen.write("\n\n\n")
+
+def main():
+
+	# 1. Trim and map
+	
+	print "\nProcessing sample %s" %(cfg.sampleName)
+	cfg.logOpen.write("Processing sample: "+cfg.sampleName+'\n')
+
+	if not args.trimmed: 
+		print "\nRemoving duplicates"
+		dup_removed_reads = remove_dup(reads, q, p)
+
+	if not args.trimmed: 
+		print "\nTrimming 5' and 3'"
+		processed_reads = trim(dup_removed_reads, iCLIP3pBarcode, l, iCLIP5pBasesToTrim)
+	else: processed_reads = reads
+
+	print "\nRun mapping to repeat index."  
+	(rep_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, tRNAindex, index)
+
+	print "\nRun samtools."
+	cfg.logOpen.write("Run samtools.\n")
+	rep_bed = run_samtools(rep_sam, mapq)
+	trna_bed = run_samtools(trna_sam, mapq)
+	gen_bed = run_samtools(gen_sam, mapq)
+	#gen_bed = run_samtools(gen_sam, 255) #mapq coding for STAR to get only unique
+
+	# 2. Process repeat RT stops
+	
+	print "\nRun repeat and blacklist region masker."
+	cfg.logOpen.write("Run repeat and blacklist masker.\n")
+	gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
+
+	print "\nRepeat RT stop isolation."
+	cfg.logOpen.write("Repeat RT stop isolation.\n")
+	readsByStrand_rep=separateStrands(rep_bed)
+	negativeRTstop_rep=isolate5prime(modifyNegativeStrand(readsByStrand_rep[0])) 
+	positiveRTstop_rep=isolate5prime(readsByStrand_rep[1]) 
+
+	print "Merge Repeat RT stops."
+	cfg.logOpen.write("Merge Repeat RT stops.\n")
+	posMerged = cfg.outfilepath+cfg.sampleName+'_repeat_positivereads.mergedRT'
+	negMerged = cfg.outfilepath+cfg.sampleName+'_repeat_negativereads.mergedRT'
+	negAndPosMerged = cfg.outfilepath+cfg.sampleName+'_threshold=%s'%threshold_rep+'_repeat_allreads.mergedRT.bed'
+	mergeRT(positiveRTstop_rep, posMerged, posMerged + '_stats', minpass_rep, threshold_rep, expand, '+')
+	mergeRT(negativeRTstop_rep, negMerged, negMerged + '_stats', minpass_rep, threshold_rep, expand, '-')
+	fileCat(negAndPosMerged, [posMerged, negMerged])
+	fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
+
+	print "Nonrepeat RT stop isolation."
+	cfg.logOpen.write("Nonrepeat RT stop isolation.\n")
+	readsByStrand = separateStrands(gen_norepeat_bed)
+	negativeRTstop = isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
+	positiveRTstop = isolate5prime(readsByStrand[1]) 
+
+	print "Merge Nonrepeat RT stops."
+	cfg.logOpen.write("Merge Nonrepeat RT stops.\n")
+	posMerged = cfg.outfilepath+cfg.sampleName+'_%s_positivereads.mergedRT'%index_tag
+	negMerged = cfg.outfilepath+cfg.sampleName+'_%s_negativereads.mergedRT'%index_tag
+	negAndPosMerged = cfg.outfilepath+cfg.sampleName+'_threshold=%s'%threshold_nr+'_%s_allreads.mergedRT.bed'%index_tag
+	mergeRT(positiveRTstop, posMerged, posMerged + '_stats', minpass_nr, threshold_nr, expand, '+')
+	mergeRT(negativeRTstop, negMerged, negMerged + '_stats', minpass_nr, threshold_nr, expand, '-')
+	fileCat(negAndPosMerged,[posMerged,negMerged])
+	fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
+
+	# 3. Process genic RT stops
+	
+	print "\nFiltering out snoRNAs and miRNAs"
+	sno_mirna_filtered_reads = filter_snoRNAs(negAndPosMerged, snoRNAmasker, miRNAmasker)
+
+	if not cfg.run_clipper: 
+		print "\nAnnotating reads by gene"
+		CLIPPERlowFDR = annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed)
+		# CLIPperGeneList  # list of genes; commented out all things making this
+		# CLIPperOutBed  # cluster file; we're not making this, and this is not used anywhere else
+	else:
+		print "\nRunning CLIPper."
+		cfg.logOpen.write("Run CLIPper.\n")
+
+		CLIPPERout = runCLIPPER(sno_mirna_filtered_reads, genomeForCLIPper, genomeFile)
+		[CLIPPERlowFDR, CLIPperReadsPerCluster, CLIPperGeneList, CLIPperOutBed] = modCLIPPERout(sno_mirna_filtered_reads, CLIPPERout)
+
+	print "Make bedGraph"
+	cfg.logOpen.write("Make bedGraph.\n")
+	cleanBed = cleanBedFile(CLIPPERlowFDR)
+	bedGraphCLIPout = makeBedGraph(cleanBed,genomeFile)
+	CLIPPERlowFDRcenters = getBedCenterPoints(CLIPPERlowFDR, expand)
+	allLowFDRCentersBedGraph = makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
+
+	# 4. Partition reads by gene type
+	
+	print "\nPartition reads by type."
+	cfg.logOpen.write("Partition reads by type.\n")
+
+	if cfg.run_clipper:
+		pathToGeneLists = getLowFDRGeneTypes(CLIPperGeneList,geneAnnot)
+		pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+	else:
+		pathToGeneLists = getAllGeneTypes(geneAnnot)
+		pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+	
+	geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
+	proteinCodingReads = cfg.outfilepath + 'clipGenes_proteinCoding_LowFDRreads.bed'
+	proteinCodingReads_centered = getBedCenterPoints(proteinCodingReads, expand)
+	proteinBedGraph = makeBedGraph(proteinCodingReads_centered, genomeFile)
+	geneCounts_pc = get_gene_counts(proteinCodingReads_centered) 
+	cfg.outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
+	geneCounts_pc.to_csv(cfg.outfilepathToSave)
+
+	lincRNAReads = cfg.outfilepath + 'clipGenes_lincRNA_LowFDRreads.bed'
+	lincRNAReads_centered = getBedCenterPoints(lincRNAReads, expand)
+	if os.stat(lincRNAReads_centered).st_size > 0:
+		geneCounts_linc = get_gene_counts(lincRNAReads_centered)
+		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_lincRNA'
+		geneCounts_linc.to_csv(outfilepathToSave)
+
+		bf=pd.DataFrame(pd.read_table(lincRNAReads_centered,header=None))
+		bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
+		bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
+		merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
+		ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
+		outfilepathToSave = lincRNAReads_centered.replace(".bed",".geneStartStop")
+		ncRNA_startStop.to_csv(outfilepathToSave)
+
+	bedFile_sno = getSnoRNAreads(CLIPPERlowFDRcenters, snoRNAindex)
+	if os.stat(bedFile_sno).st_size > 0:
+		geneCounts_sno = countSnoRNAs(bedFile_sno) 
+		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_snoRNA'
+		geneCounts_sno.to_csv(outfilepathToSave)
+		
+	remaining = [f for f in glob.glob(cfg.outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
+	countRemainingGeneTypes(remaining)
+
+	if cfg.run_clipper:
+		print "Get binding intensity around cluster centers."
+		cfg.logOpen.write("Get binding intensity around cluster centers.\n")
+			
+		bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
+		centerCoordinates=makeClusterCenter(CLIPperOutBed) 
+		getClusterIntensity(bedGraphCLIPin,centerCoordinates)
+
+	# 5. Process introns and UTRs
+	
+	print "\nIntron and UTR analysis."
+	cfg.logOpen.write("Intron and UTR analysis.\n")
+	exonreads, intronreads, fivePreads, threePreads, cdsreads = extract_regions(proteinCodingReads_centered, fivePUTRBed, threePUTRBed, exonBed)
+
+	if os.stat(fivePreads).st_size > 0:
+		geneCounts_5p=get_gene_counts(fivePreads) 
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_5pUTR'
+		geneCounts_5p.to_csv(outfilepathToSave)
+
+	if os.stat(threePreads).st_size > 0:
+		geneCounts_3p=get_gene_counts(threePreads) 
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_3pUTR'
+		geneCounts_3p.to_csv(outfilepathToSave)
+
+	if os.stat(cdsreads).st_size > 0:
+		geneCounts_cds=get_gene_counts(cdsreads) 
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_CDS'
+		geneCounts_cds.to_csv(outfilepathToSave) 
+
+	if os.stat(exonreads).st_size > 0:
+		geneCounts_5p=get_gene_counts(exonreads) 
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_Exons'
+		geneCounts_5p.to_csv(outfilepathToSave)
+
+	if os.stat(intronreads).st_size > 0:
+		geneCounts_3p=get_gene_counts(intronreads) 
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_Introns'
+		geneCounts_3p.to_csv(outfilepathToSave)
+
+	gene_binding_by_region()
+
+	# 6. Analysis of gene bodies, CLIP binding sites (iCLIPro), tRNAs
+	
+	print "\nGene body analysis."
+	cfg.logOpen.write("Gene body analysis.\n")
+	#makeAvgGraph(proteinBedGraph, utrFile, genesFile, sizesFile)
+
+	print "\nncRNA gene body analysis."
+	remaining=[f for f in glob.glob(cfg.outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
+	for bedFile in remaining:
+		st_stop=getGeneStartStop(bedFile,geneRef)
+
+	print "\nRun iCLIPro."
+	cfg.logOpen.write("Run iCLIPro.\n")
+	iclipro = run_iclipro(gen_sam)
+
+	print "\nRun tRNA isotype counting."
+	cfg.logOpen.write("Run tRNA isotype counting.\n")
+	trna_readlist = trna_isotype_count(trna_sam, minpass_rep, threshold_rep)
+
+	# 7. Repeat RNAs
+	
+	print "\nRecord repeat RNA."
+	repeat_genome_bases,repeatAnnotDF=makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation)
+	repeatAnnotDF.set_index('Name',inplace=True,drop=False)
+	repeatMerged=glob.glob(cfg.outfilepath+"*repeat_allreads.mergedRT.bed") # Get merged data for repeat index.
+	rep=pd.read_table(repeatMerged[0],dtype=str,header=None)
+	rep.columns=['Rep_index','Start','Stop','Read_name','Q','Strand']
+	rep['RT_stop']=rep['Start'].astype(int)+expand
+	for ix in repeatAnnotDF.index:
+		end=repeatAnnotDF.loc[ix,'IndexEnd']
+		repName=repeatAnnotDF.loc[ix,'Name']
+		gene_hits=rep[(rep['RT_stop']<int(repeatAnnotDF.loc[ix,'IndexEnd']))&(rep['RT_stop']>int(repeatAnnotDF.loc[ix,'IndexStart']))]
+		gene_hits['Repeat_End']=repeatAnnotDF.loc[ix,'IndexEnd']
+		gene_hits['Repeat_Start']=repeatAnnotDF.loc[ix,'IndexStart']
+		outfilepathToSave=cfg.outfilepath + '/PlotData_RepeatRNAreads_%s'%repName
+		gene_hits.to_csv(outfilepathToSave)
+	
+	# 8. Plots
+	
+	print "\nMake plots."
+	import matplotlib
+	import commands
+	matplotlib.rcParams['savefig.dpi'] = 2 * matplotlib.rcParams['savefig.dpi']
+
+	print "Making Figure 1"
+	cfg.logOpen.write("Making Figure 1\n")
+
+	fig1 = plt.figure(1)
+	plot_figure1(nsamp, reads)
+	fig1.tight_layout()
+	fig1.savefig(cfg.outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+
+	print "Making Figure 2"
+	cfg.logOpen.write("Making Figure 2\n")
+
+	ensemblGeneAnnot = pd.DataFrame(pd.read_table(genesFile))
+	ensemblGeneAnnot = ensemblGeneAnnot.set_index('name') # Make ENST the index
+	plot_geneBodyPartition()
+
+	fig2 = plt.figure(2)
+	plt.subplot2grid((2,4),(0,0),colspan=4)
+	plot_mRNAgeneBodyDist()
+	plot_geneBodyPartition()
+	fig2.tight_layout()
+	fig2.savefig(cfg.outfilepath+'Figure2.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig2.savefig(cfg.outfilepath+'Figure2.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+
+	print "Making Figure 3"
+	cfg.logOpen.write("Making Figure 3\n")
+
+	fig3 = plt.figure(3)
+	plot_repeatRNA(repeatGenomeBuild)
+	fig3.tight_layout()
+	fig3.savefig(cfg.outfilepath+'Figure3.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig3.savefig(cfg.outfilepath+'Figure3.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+
+	print "Making Figure 4"
+	cfg.logOpen.write("Making Figure 4\n")
+	fig4 = plt.figure(4)
+	plot_rDNA(start18s, end18s, start5s, end5s, start28s, end28s, rRNAend)
+	fig4.tight_layout()
+	fig4.savefig(cfg.outfilepath+'Figure4.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig4.savefig(cfg.outfilepath+'Figure4.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+		
+	snorna_file = cfg.outfilepath+"clipGenes_snoRNA_LowFDRreads.bed"
+	if os.stat(snorna_file).st_size > 0:
+		print "Making Figure 5"
+		cfg.logOpen.write("Making Figure 5\n")
+		fig5 = plt.figure(5)
+		plot_snorna(snorna_file)
+		fig5.tight_layout()
+		fig5.savefig(cfg.outfilepath+'Figure5.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+		fig5.savefig(cfg.outfilepath+'Figure5.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	else:
+		print "No snoRNA reads; not making Figure 5"
+		cfg.logOpen.write("No snoRNA reads; not making Figure 5\n")
+		
+	print "Making Figure 6"
+	cfg.logOpen.write("Making Figure 6\n")
+	print "ncRNA gene body analysis."
+	st_stopFiles = glob.glob(cfg.outfilepath+"*.geneStartStop")
+	st_stopFiles = [f for f in st_stopFiles if 'rRNA' not in f]
+	fig6 = plt.figure(6)
+	plot_ncrnas(st_stopFiles, expand)
+	fig6.tight_layout()
+	fig6.savefig(cfg.outfilepath+'Figure6.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig6.savefig(cfg.outfilepath+'Figure6.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+
+	clean_up()
+	cfg.logOpen.close()
+
+def clean_up():
+	os.chdir(cfg.outfilepath)
+	os.system("mkdir rawdata")
+	os.system("mv PlotData_* rawdata")
+	os.system("mv clipGenes_proteinCoding* rawdata")
+	os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads* rawdata")
+	os.system("mv *_allreads.mergedRT.bed rawdata")
+	os.system("mv *.mergedRT_CLIP_clusters.bed rawdata")
+	os.system("mv *_withDupes_noBlacklist_noRepeat.bed rawdata")
+	os.system("mv *_withDupes.bed rawdata")
+	os.system("mv *threshold*mergedRT_CLIP_clusters_cleaned.bed rawdata")
+	os.system("mv runLog *stats* *.bam rawdata")
+	os.system("mv *iclipro/ rawdata")
+	os.system("mv *isotypes* *trnaReads.txt *histo.txt rawdata")
+	os.system("mkdir figures")
+	os.system("mv Figure* figures")
+
+	os.system("mkdir todelete")
+	os.system("mv *.* todelete")
+	os.system("mv clipGenes_* todelete")
+	
+if __name__ == "__init__":
+	main()
+
+
+
