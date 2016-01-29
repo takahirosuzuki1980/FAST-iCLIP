@@ -52,6 +52,8 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   -q Q         |         Minimum average quality score allowed during read filtering. Default is 25.
   -p P          |    Percentage of bases that must have quality > q during filtering. Default is 80.
   -l L           |       Minimum length of read. Default is 15.
+  --clipper	| run CLIPper on data. Not recommended as we find that this removes a lot of true CLIP reads
+  --verbose	| Prints out lots of things :)
 
 
 Installation instructions
@@ -60,13 +62,14 @@ Installation instructions
 1. Clone this repository by running one of the following:
 	- `git clone git@github.com:ChangLab/FAST-iCLIP.git` if you use ssh authentication
 	- `git clone https://github.com/ChangLab/FAST-iCLIP.git` otherwise
-2. `cd` into the `FAST-iCLIP` folder.
-3. To install, run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
+2. Type `cd FAST-iCLIP` to enter the folder.
+3. Run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
+4. Run `sudo python setup.py install`. If you do not have sudo privileges, run `python setup.py install --user` or `python setup.py install --prefix=<desired directory>`.
 4. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 5. Try running the following command: 
-  `./fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run fairly quickly. Look inside `results/MMhur` for output files.
+  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
 
-To run `fasticlip` from outside its installation directory, add the following lines to the end of your `.bash_profile` script:
+You can `fasticlip` from outside its installation directory. To do this, add the following lines to the end of your `.bash_profile` script:
 
 	export FASTICLIP_PATH=<your absolute FAST-iCLIP installation path>
 	export PATH=$FASTICLIP_PATH:$PATH
@@ -82,9 +85,10 @@ Dependencies
 5. Pandas for Python (data): http://pandas.pydata.org/
 6. Bowtie2: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
 7. bedtools: http://bedtools.readthedocs.org/en/latest/
-8. CLIPper: https://github.com/YeoLab/clipper/wiki/CLIPper-Home
+8. CLIPper: https://github.com/YeoLab/clipper/wiki/CLIPper-Home (now optional)
 9. FASTX-Tookit: http://hannonlab.cshl.edu/fastx_toolkit/
 10. Matplotlib-venn for Python: https://pypi.python.org/pypi/matplotlib-venn
+11. iCLIPro: http://www.biolab.si/iCLIPro/doc/
 
 Input
 -----
