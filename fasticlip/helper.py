@@ -96,11 +96,11 @@ def runBowtie(processed_reads, repeat_index, trna_index, star_index):
 		trna_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToTrna.fastq")
 		genome_star_prefix = trna_unmapped.replace("_notMappedToTrna.fastq", "")
 		genome_star_output = trna_unmapped.replace("_notMappedToTrna.fastq", "Aligned.out.sam")
-		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", ".sam")
+		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", "_mappedToGenome.sam")
 		genome_sam.append(genome_mapped)
 
 		if glob.glob(genome_mapped):
-			log("Bowtie already done.")
+			log("Bowtie/STAR already done.")
 			continue
 			
 		log("Mapping {} to repeat".format(infastq))
@@ -117,7 +117,10 @@ def runBowtie(processed_reads, repeat_index, trna_index, star_index):
 		log("Mapping {} to genome".format(infastq))
 		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd".format(star_index, trna_unmapped, genome_star_prefix)
 		if cfg.verbose: log(cmd)
-		os.system(cmd)
+		star_res = os.system(cmd)
+		if star_res != 0:
+			log("STAR must be version 2.4.0 or higher; please check that this is the case.")
+			exit()
 		os.system("mv {} {}".format(genome_star_output, genome_mapped))
 		
 	return rep_sam, trna_sam, genome_sam
@@ -832,7 +835,7 @@ def plot_ReadAccounting(nsamp, reads):
 		line.set_markersize(0)
 	plt.title('Read counts',fontsize=5)
 	
-	if cfg.verbose: log(fileNames)
+	if cfg.verbose: log(str(fileNames))
 	if cfg.verbose: log(counts)
 	readDF=pd.DataFrame()
 	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadsPerPipeFile'

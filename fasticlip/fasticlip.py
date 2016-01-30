@@ -356,7 +356,7 @@ def main():
 	# 6. Analysis of gene bodies, CLIP binding sites (iCLIPro), tRNAs
 	
 	log("\nGene body analysis.")
-	#makeAvgGraph(proteinBedGraph, utrFile, genesFile, sizesFile)
+	makeAvgGraph(proteinBedGraph, utrFile, genesFile, sizesFile)
 
 	log("\nncRNA gene body analysis.")
 	remaining=[f for f in glob.glob(cfg.outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
@@ -464,8 +464,8 @@ def clean_up():
 	os.system("mkdir PlotData_Other")
 	os.system("mv PlotData* PlotData_Other")
 	
-	os.system("mkdir clipGenes_proteinCoding")
-	os.system("mv clipGenes_proteinCoding* clipGenes_proteinCoding")
+	os.system("mkdir ProteinCoding")
+	os.system("mv clipGenes_proteinCoding* ProteinCoding")
 	
 	os.system("mkdir rawdata_and_stats")
 	os.system("mv *stats* *.bam *Log.final.out rawdata")
@@ -474,7 +474,7 @@ def clean_up():
 	os.system("mkdir bedfiles")
 	os.system("mv *.mergedRT.bed bedfiles")
 	os.system("mv *.bw *.bedGraph *_cleaned_sorted.bed *_centerCoord.bed bedfiles")
-	if run_clipper:
+	if cfg.run_clipper:
 		os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads* rawdata")
 		os.system("mv *.mergedRT_CLIP_clusters.bed rawdata")
 	else:
