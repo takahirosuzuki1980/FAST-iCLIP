@@ -68,7 +68,7 @@ Installation instructions
 5. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 6. Make your genome index for STAR. Once STAR is installed, run the following: `STAR --runMode genomeGenerate --runThreadN 8 --genomeDir <your desired folder> --genomeFastaFiles <genome FASTA file>`. You can download FASTA files from http://hgdownload.cse.ucsc.edu/downloads.html.
 5. Try running the following command: 
-  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
+  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -s <location of your STAR index> -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
 
 You can `fasticlip` from outside its installation directory. To do this, add the following lines to the end of your `.bash_profile` script:
 
