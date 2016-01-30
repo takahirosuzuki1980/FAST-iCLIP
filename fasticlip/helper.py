@@ -18,6 +18,10 @@ csv.register_dialect("textdialect",delimiter='\t')
 ### TRIMMING ###
 ################
 
+def log(str):
+	print str
+	cfg.logOpen.write(str + '\n')
+	
 def remove_dup(reads, q, p):
 	uniq_reads = []
 	for inread in reads:
@@ -31,8 +35,7 @@ def remove_dup(reads, q, p):
 		uniq_reads.append(outread)
 		if glob.glob(outread):
 			uniq_reads=uniq_reads+[outread]
-			print "Filtering and duplicate removal already done."
-			cfg.logOpen.write("Filtering and duplicate removal already done.\n")
+			log("Filtering and duplicate removal already done.")
 			continue
 			
 		if is_compressed:
@@ -43,7 +46,7 @@ def remove_dup(reads, q, p):
 		cmd_2 = "fastq_quality_filter -Q33 -q{} -p{}".format(q, p)
 		cmd_3 = "fastx_collapser -Q33 > {}".format(outread)
 		full_cmd = ' | '.join([cmd_1, cmd_2, cmd_3])
-		if cfg.verbose: print full_cmd
+		if cfg.verbose: log(full_cmd)
 		os.system(full_cmd)
 	return uniq_reads
 
@@ -57,24 +60,22 @@ def trim(reads, adapter3p, l, n):
 		outread = inread.replace("_nodup.fasta", "_trimmed.fastq")
 		trimmedReads.append(outread)
 		if glob.glob(outread):
-			print "5' and 3' barcode trimming already done."
-			cfg.logOpen.write("5' and 3' barcode trimming already done.\n")
+			log("5' and 3' barcode trimming already done.")
 			continue
 		
 		cmd_1 = "perl {} {}".format(program, inread)
 		cmd_2 = "fastx_clipper -n -l{} -Q33 -a {}".format(l, adapter3p)
 		cmd_3 = "fastx_trimmer -f{} -Q33 > {}".format(n, outread)
 		full_cmd = ' | '.join([cmd_1, cmd_2, cmd_3])
-		if cfg.verbose: print full_cmd
+		if cfg.verbose: log(full_cmd)
 		os.system(full_cmd)
-		cfg.logOpen.write("Perform 5' and 3' barcode trimming.\n")
 	return trimmedReads
 
 ################
 ### MAPPING  ###
 ################
 
-def runBowtie(processed_reads, repeat_index, trna_index, genome_index):
+def runBowtie(processed_reads, repeat_index, trna_index, star_index):
 	# Usage: Read mapping.
 	# Input: Fastq files of replicate trimmed read files.
 	# Output: Path to samfile for each read.
@@ -85,38 +86,40 @@ def runBowtie(processed_reads, repeat_index, trna_index, genome_index):
 	for infastq in processed_reads:
 		rep_mapped = infastq.replace(".fastq", "_mappedToRepeat.sam")
 		rep_mapped = cfg.outfilepath + os.path.basename(rep_mapped)
+		rep_sam.append(rep_mapped)
+
 		rep_unmapped = infastq.replace(".fastq", "_notMappedToRepeat.fastq")
 		rep_unmapped = cfg.outfilepath + os.path.basename(rep_unmapped)
 		trna_mapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_mappedToTrna.sam")
-		trna_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToTrna.fastq")
-		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", "_mappedToGenome.sam")
-		rep_sam.append(rep_mapped)
 		trna_sam.append(trna_mapped)
+
+		trna_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToTrna.fastq")
+		genome_star_prefix = trna_unmapped.replace("_notMappedToTrna.fastq", "")
+		genome_star_output = trna_unmapped.replace("_notMappedToTrna.fastq", "Aligned.out.sam")
+		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", ".sam")
 		genome_sam.append(genome_mapped)
 
 		if glob.glob(genome_mapped):
-			print "Bowtie already done."
-			cfg.logOpen.write("Bowtie already done.\n")
+			log("Bowtie already done.")
 			continue
 			
+		log("Mapping {} to repeat".format(infastq))
 		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(repeat_index, infastq, rep_unmapped, rep_mapped, rep_mapped + '_stats.txt')
-		if cfg.verbose: print cmd
+		if cfg.verbose: log(cmd)
 		os.system(cmd)
-		
+				
+		log("Mapping {} to repeat".format(infastq))
 		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(trna_index, rep_unmapped, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
-		if cfg.verbose: print cmd
+		if cfg.verbose: log(cmd)
 		os.system(cmd)
 		
-		cmd = "bowtie2 -p 8 -x {} {} -S {} > {} 2>&1".format(genome_index, trna_unmapped, genome_mapped, genome_mapped + '_stats.txt')
-		
-		# TODO: alignment with STAR instead to align splice junctions
-		# need to tune parameters before switching to star  
-		#cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad NoSharedMemory --readFilesIn {} --outSAMtype SAM Unsorted --outFileNamePrefix {} --outFilterMultimapScoreRange 0 --outFilterMultimapNmax 500 --alignEndsType EndToEnd --seedSearchLmax 10 --outFilterMismatchNmax 3 --outFilterMismatchNoverLmax 0.05 --outReadsUnmapped Fastx --outSAMattributes All".format(genome_index, trna_unmapped, genome_mapped)
-		
-		if cfg.verbose: print cmd
+		#cmd = "bowtie2 -p 8 -x {} {} -S {} > {} 2>&1".format(genome_index, trna_unmapped, genome_mapped, genome_mapped + '_stats.txt')
+		log("Mapping {} to genome".format(infastq))
+		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd".format(star_index, trna_unmapped, genome_star_prefix)
+		if cfg.verbose: log(cmd)
 		os.system(cmd)
+		os.system("mv {} {}".format(genome_star_output, genome_mapped))
 		
-		cfg.logOpen.write("Perform mapping.")
 	return rep_sam, trna_sam, genome_sam
 
 def run_samtools(samfiles, mapq):
@@ -133,9 +136,9 @@ def run_samtools(samfiles, mapq):
 			
 		cmd_1 = "cat {} | samtools view -q {} -Suo - - | samtools sort - {}".format(samfile, mapq, bamfile_sort)
 		cmd_2 = "bamToBed -i {} > {}".format(bamfile_sort + '.bam', bedfile)
-		if cfg.verbose: print cmd_1
+		if cfg.verbose: log(cmd_1)
 		os.system(cmd_1)
-		if cfg.verbose: print cmd_2
+		if cfg.verbose: log(cmd_2)
 		os.system(cmd_2)
 		
 	return out_bedfiles
@@ -154,11 +157,9 @@ def run_iclipro(samfiles):
 	
 		cmd_1 = "iCLIPro -r 50 -b 300 -g \"L18:18,L19:19,L20:20,L21:21,L22:22,L23:23,L24:24,L25:25,L26:26,L27:27,L28:28,L29:29,L30:30,L31:31,L32:32,L33:33,L34:34,L35:35,L36:36,L37:37,L38:38,L39:39,R:42\" -p \"L18-R,L19-R,L20-R,L21-R,L22-R,L23-R,L24-R,L25-R,L26-R,L27-R,L28-R,L29-R,L30-R,L31-R,L32-R,L33-R,L34-R,L35-R,L36-R,L37-R,L38-R,L39-R\" -o {} {} > {}".format(bamfile_sort + "_iclipro", bamfile_sort, bamfile_sort + "_iclipro_stats.txt")
 	
-		if cfg.verbose: print cmd_1
+		if cfg.verbose: log(cmd_1)
 		rt = os.system(cmd_1)
-		if rt != 0:
-			cfg.logOpen.write("iCLIPro error.")
-			print "iCLIPro error"
+		if rt != 0: log("iCLIPro error.")
 			
 def trna_isotype_count(trna_samfiles, minpass, threshold):
 	# Usage: get reads that are unique to only one AA of tRNA
@@ -244,11 +245,11 @@ def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
 		cmd_2 = "bedtools intersect -a {} -b {} -wa -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
 		cmd_3 = "bedtools intersect -a {} -b {} -wa -wb -sorted -s > {}".format(no_blacklist, repeatregions, repeat)
 
-		if cfg.verbose: print cmd_1
+		if cfg.verbose: log(cmd_1)
 		os.system(cmd_1)
-		if cfg.verbose: print cmd_2
+		if cfg.verbose: log(cmd_2)
 		os.system(cmd_2)
-		if cfg.verbose: print cmd_3
+		if cfg.verbose: log(cmd_3)
 		os.system(cmd_3)
 		masked.append(no_repeat)
 		
@@ -393,7 +394,7 @@ def filter_snoRNAs(negAndPosMerged, snoRNAmasker, miRNAmasker):
 	cmd2_2 = "awk -F '\\t' 'BEGIN {OFS=\"\\t\"} {print $1,$2,$3,$4 \"_\" NR,$5,$6}'"
 	cmd2_3 = proteinWithoutmiRNAs
 	cmd = cmd1 + ' | ' + cmd2_1 + ' | ' + cmd2_2 + ' > ' + cmd2_3
-	if cfg.verbose: print cmd
+	if cfg.verbose: log(cmd)
 	os.system(cmd)
 	
 	return proteinWithoutmiRNAs
@@ -489,7 +490,7 @@ def modCLIPPERout(CLIPPERin, CLIPPERout):
 				g.write((readPerCluster+'\n'))
 				h.write((geneName+'\n'))
 			except:
-				print ""
+				continue
 				
 	# Intersect input reads with the CLIPper windows and report full result for both.
 	cmd = "bedtools intersect -a {} -b {} -wa -wb -s > {}".format(CLIPPERin, CLIPperOutBed, CLIPPERlowFDR)
@@ -657,7 +658,7 @@ def countRemainingGeneTypes(remaining):
 			geneCounts.to_csv(cfg.outfilepathToSave)
 			
 		except ValueError:
-			print "No reads in %s"%bedFile
+			log("No reads in {}".format(bedFile))
 
 #####################
 ### INTRON/UTRS   ###
@@ -764,7 +765,7 @@ def getGeneStartStop(bedFile,geneRef):
 		outfilepathToSave=bedFile.replace(".bed",".geneStartStop")
 		ncRNA_startStop.to_csv(outfilepathToSave)
 	except ValueError:
-		print "No reads in %s"%bedFile
+		log("No reads in {}".format(bedFile))
 		
 def makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation):
 	repeat_genome=np.genfromtxt(repeatGenomeBuild,dtype='string')
@@ -780,7 +781,7 @@ def makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation):
 ############
 
 def lineCount(filename):
-	if cfg.verbose: print filename
+	if cfg.verbose: log(filename)
 	if filename[-3:] == '.gz':
 		cmd_1 = "gunzip -c {}".format(filename)
 	else:
@@ -831,8 +832,8 @@ def plot_ReadAccounting(nsamp, reads):
 		line.set_markersize(0)
 	plt.title('Read counts',fontsize=5)
 	
-	if cfg.verbose: print fileNames
-	if cfg.verbose: print counts
+	if cfg.verbose: log(fileNames)
+	if cfg.verbose: log(counts)
 	readDF=pd.DataFrame()
 	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadsPerPipeFile'
 	readDF.to_csv(outfilepathToSave)
@@ -937,20 +938,27 @@ def plot_readsBymRNAregion(ax):
 		wedge.set_lw(1)
 		
 def plot_figure1(nsamp, reads):
-	plt.subplot(2,3,1) 
-	plot_ReadAccounting(nsamp, reads)
 	if cfg.run_clipper:
+		plt.subplot(2,3,1) 
+		plot_ReadAccounting(nsamp, reads)
 		plt.subplot(2,3,2)
 		plot_ReadsPerCluster()
 		plt.subplot(2,3,3)
 		plot_ClusterSizes()
 		plt.subplot(2,3,4)
 		plot_clusterBindingIntensity()
-	ax = plt.subplot(2,3,5)
-	plot_readsBymRNAregion(ax)
-	plt.subplot(2,3,6)
-	plot_BoundGeneTypes()
-	
+		ax = plt.subplot(2,3,5)
+		plot_readsBymRNAregion(ax)
+		plt.subplot(2,3,6)
+		plot_BoundGeneTypes()
+	else:
+		plt.subplot(1,3,1) 
+		plot_ReadAccounting(nsamp, reads)
+		ax = plt.subplot(1,3,2)
+		plot_readsBymRNAregion(ax)
+		plt.subplot(1,3,3)
+		plot_BoundGeneTypes()
+		
 ############
 ## PLOT 2 ##
 ############
@@ -1095,7 +1103,7 @@ def plot_repeatRNA(repeatGenomeBuild):
 		try:
 			(RTpositions_plus, RTpositions_minus, start, end) = read_csv_by_line(path)
 		except:
-			print "No reads for repeatRNA %s"%name	
+			log("No reads for repeatRNA {}".format(name))
 			continue
 			
 		# Histogram of RT stops across gene body

@@ -12,6 +12,12 @@ else
 	echo >&2 "bowtie2 must be installed.  Aborting."; exit 1
 fi
 
+if $(type STAR >/dev/null 2>&1); then
+	echo "STAR installed"
+else 
+	echo >&2 "STAR must be installed.  Aborting."; exit 1
+fi
+
 if $(type fastx_quality_stats >/dev/null 2>&1); then
 	echo "FASTX-toolkit installed"
 else 
@@ -61,15 +67,7 @@ wget https://s3.amazonaws.com/changlabguest/FAST-iCLIP/docs.tar.gz
 mkdir docs
 tar xvzf docs.tar.gz -C docs && rm -f docs.tar.gz
 
-# 3. Downloading bowtie indexes
-wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/hg19.zip
-wget ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/mm9.zip
-mkdir docs/hg19/hg19
-unzip hg19.zip -d docs/hg19/hg19 && rm -f hg19.zip
-mkdir docs/mm9/mm9/
-unzip mm9.zip -d docs/mm9/mm9/ && rm -f mm9.zip
-
-# 4. Downloading example files
+# 3. Downloading example files
 wget https://s3.amazonaws.com/changlabguest/FAST-iCLIP/rawdata.tar.gz
 mkdir rawdata
 tar xvzf rawdata.tar.gz -C rawdata && rm -f rawdata.tar.gz
