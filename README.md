@@ -18,15 +18,14 @@ The following README will focus mainly on `fasticlip`. The pdf in the repository
 - [Dependencies](#user-content-dependencies)
 - [Input](#user-content-input)
 - [Output](#user-content-output)
-- [Debugging](#user-content-debugging)
 - [How the pipeline works](#user-content-how-the-pipeline-works)
 
 Usage
 -----
 
-`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--hg19 | --mm9] -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-m MAPQ] [-q Q] [-p P] [-l L]`
+`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--hg19 | --mm9] -s STAR_INDEX -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-m MAPQ] [-q Q] [-p P] [-l L]`
 
-Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`
+Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -s /seq/STAR/indexes/mm9 -n MMhur -o results`
 
 ### Required arguments
 
@@ -36,6 +35,7 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   -i INPUT(s) | At least one input FASTQ (or fastq.gz) files; separated by spaces
   --hg19        |    required if your CLIP is from human
   --mm9          |   required if your CLIP is from mouse
+  -s STAR_INDEX  |   Path to STAR index for your organism
   -n NAME         |  Name of output directory
   -o OUTPUT        | Name of directory where output directory will be made
   
@@ -65,9 +65,10 @@ Installation instructions
 2. Type `cd FAST-iCLIP` to enter the folder.
 3. Run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
 4. Run `sudo python setup.py install`. If you do not have sudo privileges, run `python setup.py install --user` or `python setup.py install --prefix=<desired directory>`.
-4. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
+5. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
+6. Make your genome index for STAR. Once STAR is installed, run the following: `STAR --runMode genomeGenerate --runThreadN 8 --genomeDir <your desired folder> --genomeFastaFiles <genome FASTA file>`. You can download FASTA files from http://hgdownload.cse.ucsc.edu/downloads.html.
 5. Try running the following command: 
-  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
+  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -s <location of your STAR index> -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
 
 You can `fasticlip` from outside its installation directory. To do this, add the following lines to the end of your `.bash_profile` script:
 
@@ -84,11 +85,12 @@ Dependencies
 4. Matplotlib for Python (plotting): http://matplotlib.org/
 5. Pandas for Python (data): http://pandas.pydata.org/
 6. Bowtie2: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
-7. bedtools: http://bedtools.readthedocs.org/en/latest/
-8. CLIPper: https://github.com/YeoLab/clipper/wiki/CLIPper-Home (now optional)
-9. FASTX-Tookit: http://hannonlab.cshl.edu/fastx_toolkit/
-10. Matplotlib-venn for Python: https://pypi.python.org/pypi/matplotlib-venn
-11. iCLIPro: http://www.biolab.si/iCLIPro/doc/
+7. STAR: https://github.com/alexdobin/STAR
+8. bedtools: http://bedtools.readthedocs.org/en/latest/
+9. CLIPper: https://github.com/YeoLab/clipper/wiki/CLIPper-Home (now optional)
+10. FASTX-Tookit: http://hannonlab.cshl.edu/fastx_toolkit/
+11. Matplotlib-venn for Python: https://pypi.python.org/pypi/matplotlib-venn
+12. iCLIPro: http://www.biolab.si/iCLIPro/doc/
 
 Input
 -----
@@ -125,18 +127,6 @@ Three subdirectories inside the named directory within `results`.
 
 - `rawdata` has all the PlotData files used to make the figures, as well as intermediate files that can be useful in generating other plots.
 - `todelete` has files that are unnecessary to keep.
-
-Debugging
-----------
-
-1. _Mapping:_ Ensure that bowtie2 is in the $PATH and executable.
-2. _CLIPper:_ Uses Python 2.7. 
-3. _Any script in bin/:_
-    - The provided BedGraphToBigWig is built for Linux. 
-  - This, and related scripts, may be downloaded for other platforms: http://hgdownload.cse.ucsc.edu/admin/exe/macOSX.i386/
-4. If there is a problem parsing clusters from CLIPper, consider the version used.
-  - The older version of CLIPper gives files with name `<name>_<clusterNum>_<readPerCluster>`
-  - The newer version gives files with name `name.val__<clusterNum>_<readPerCluster>`
 
 How the pipeline works
 ----------------------
