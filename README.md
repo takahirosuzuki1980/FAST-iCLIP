@@ -23,7 +23,7 @@ The following README will focus mainly on `fasticlip`. The pdf in the repository
 Usage
 -----
 
-`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--hg19 | --mm9] -s STAR_INDEX -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-m MAPQ] [-q Q] [-p P] [-l L]`
+`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--hg19 | --mm9] -s STAR_INDEX -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-m MAPQ] [-q Q] [-p P] [-l L] [--verbose]`
 
 Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -s /seq/STAR/indexes/mm9 -n MMhur -o results`
 
