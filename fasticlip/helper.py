@@ -162,7 +162,7 @@ def run_iclipro(samfiles):
 	
 		if cfg.verbose: log(cmd_1)
 		rt = os.system(cmd_1)
-		if rt != 0: log("iCLIPro error.")
+		if rt != 0: log("iCLIPro error; maybe too few reads?")
 			
 def trna_isotype_count(trna_samfiles, minpass, threshold):
 	# Usage: get reads that are unique to only one AA of tRNA
@@ -427,14 +427,20 @@ def annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed):
 		
 	os.system("mv {} {}".format(out_reads + '_uniq', out_reads))
 	return out_reads
-
+	
+def make_gene_list_from_annotation(CLIPPERlowFDR):
+	outfile = CLIPPERlowFDR + '.geneNames'
+	cmd = "cut -f10 {} > {}".format(CLIPPERlowFDR, outfile)
+	os.system(cmd)
+	return outfile
+	
 def runCLIPPER(RTclusterfile,genome,genomeFile):
 	# Usege: Process the mergedRT file and pass through CLIPper FDR script.
 	# Input: Merged RT file.
 	# Output: CLIPper input (.bed) file and output file.
 	
 	bamfile_sorted = RTclusterfile.replace('.bed','.srt')  
-	cmd1 = "bedToBam -i {} -g {} | samtools sort - {}".format(RTclusterfile, genomeFile, bamfile)
+	cmd1 = "bedToBam -i {} -g {} | samtools sort - {}".format(RTclusterfile, genomeFile, bamfile_sorted)
 	os.system(cmd1)
 	
 	bamfile_sorted += ".bam"
@@ -445,7 +451,7 @@ def runCLIPPER(RTclusterfile,genome,genomeFile):
 	os.system(cmd3)
 	
 	CLIPPERout_dup = RTclusterfile.replace('.bed','_CLIP_clusters_dupl') 
-	cmd5 = "clipper --bam {} {} --outfile={}".format(bamfile_sorted, genome, CLIPPERout_dup)
+	cmd4 = "clipper --bam {} {} --outfile={} > /dev/null 2>&1".format(bamfile_sorted, genome, CLIPPERout_dup)
 	os.system(cmd4)
 	
 	# added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
@@ -476,10 +482,10 @@ def modCLIPPERout(CLIPPERin, CLIPPERout):
 	# Input: .bed file passed into CLIPper and the CLIPper windows file.
 	# Output: Low FDR reads recovered using the CLIPer windows file, genes per cluster, gene list of CLIPper clusters, and CLIPper windows as .bed.
 	
-	CLIPPERlowFDR = CLIPperOutBed.replace('.bed','_lowFDRreads.bed') # Low FDR reads returned filtered through CLIPper windows
 	CLIPperOutBed = CLIPPERout + '.bed' # CLIPper windows as a bed file
 	CLIPperReadsPerCluster = CLIPPERout + '.readsPerCluster' # Number of reads per CLIPper cluster
 	CLIPperGeneList = CLIPPERout + '.geneNames' # Gene names returned from the CLIPper file
+	CLIPPERlowFDR = CLIPperOutBed.replace('.bed','_lowFDRreads.bed') # Low FDR reads returned filtered through CLIPper windows
 	
 	with open(CLIPPERout,'r') as infile, open(CLIPperOutBed,'w') as f, open(CLIPperReadsPerCluster,'w') as g, open(CLIPperGeneList,'w') as h:
 		for line in infile:	
@@ -554,12 +560,8 @@ def getClusterIntensity(bedGraph,centerCoordinates):
 	# Input: BedGraph and cluster center file.
 	# Output: Generates a matrix, which is passed into R.
 	program=cfg.home + '/bin/grep_chip-seq_intensity.pl'
-	program2='wait'
-	proc=subprocess.Popen(['perl',program, centerCoordinates, bedGraph],)
-	proc.communicate()
-	cfg.logOpen.write("Waiting for Cluster Intensity file completion...\n")
-	proc2=subprocess.Popen(program2,shell=True)
-	proc2.communicate()
+	cmd = "perl {} {} {} > /dev/null".format(program, centerCoordinates, bedGraph)
+	os.system(cmd)
 	
 #####################
 ### PARTITIONING  ###
@@ -592,17 +594,6 @@ def compareLists(list1,list2,outname):
 	outfh.close()
 	return outputName
 
-def getList(list1, outname):
-	f=open(list1,'r')
-	commonGenes = set(f.readlines())
-	geneCategory=outname.split('.')[1]
-	outputName=cfg.outfilepath+'clipGenes_'+geneCategory
-	outfh=open(outputName,'w')
-	for gene in commonGenes:
-		outfh.write(gene)
-	outfh.close()
-	return outputName
-	
 def getLowFDRGeneTypes(CLIPperGeneList,geneAnnot):
 	# Usage: Get all genes listed under each type, compare to CLIPper targets. (--clipper option)
 	# Input: .bed file passed into CLIPper and the CLIPper windows file.
@@ -611,14 +602,6 @@ def getLowFDRGeneTypes(CLIPperGeneList,geneAnnot):
 	for genepath in geneAnnot:
 		lowFDRgenes = compareLists(CLIPperGeneList, genepath, os.path.split(genepath)[1])
 		geneTypes.append(lowFDRgenes)
-	return geneTypes
-	
-def getAllGeneTypes(geneAnnot):
-	# Same as getLowFDRGenesTypes except that it returns all genes
-	geneTypes=[]
-	for genepath in geneAnnot:
-		allGenes = getList(genepath, os.path.split(genepath)[1])
-		geneTypes.append(allGenes)
 	return geneTypes
 	
 def get_gene_counts(bedFile):
@@ -734,29 +717,19 @@ def gene_binding_by_region():
 ###  METAGENES    ###
 #####################	
 
-def makeTab(bedGraph,genesFile,sizesFile):
-	program = cfg.home + '/bin/bedGraph2tab.pl'
-	program2 = 'wait'
-	outfile=bedGraph.replace('.bedgraph','.tab')
-	if glob.glob(outfile): return outfile
-	proc = subprocess.Popen(['perl',program,genesFile,sizesFile,bedGraph,outfile],)
-	proc.communicate()
-	proc2 = subprocess.Popen(program2,shell=True)
-	proc2.communicate()
-	return outfile
-
 def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
 	# Usage: Generate a matrix of read intensity values across gene body.
 	# Input: BedGraph.
 	# Output: Generates two matrices.
-	program= cfg.home + '/bin/averageGraph_scaled_tab.pl'
-	program2 = 'wait'
-	tabFile=makeTab(bedGraph,genesFile,sizesFile)
-	outhandle=tabFile.replace('.tab','_UTRs')
-	proc = subprocess.Popen(['perl',program,utrFile,tabFile,tabFile,outhandle],)
-	proc.communicate()
-	proc2 = subprocess.Popen(program2,shell=True)
-	proc2.communicate()
+	program1 = cfg.home + '/bin/bedGraph2tab.pl'
+	tabFile = bedGraph.replace('.bedgraph','.tab')
+	cmd = "perl {} {} {} {} {} > /dev/null".format(program1, genesFile, sizesFile, bedGraph, tabFile)
+	os.system(cmd)
+
+	program2 = cfg.home + "/bin/averageGraph_scaled_tab.pl"
+	outhandle = tabFile.replace('.tab','_UTRs')
+	cmd = "perl {} {} {} {} {} > /dev/null".format(program2, utrFile, tabFile, tabFile, outhandle)
+	os.system(cmd)	
 
 def getGeneStartStop(bedFile,geneRef):
 	try:
@@ -792,7 +765,7 @@ def lineCount(filename):
 	cmd = cmd_1 + ' | wc -l'
 	return int(commands.getstatusoutput(cmd)[1])
 
-def plot_ReadAccounting(nsamp, reads):
+def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 
 	bases = [os.path.splitext(os.path.basename(reads[i]))[0] for i in range(nsamp)]
 	bases = [base.replace('.fastq.gz', '').replace('.fastq', '') for base in bases]
@@ -867,8 +840,8 @@ def plot_BoundGeneTypes():
 	plt.tick_params(axis='yticks',labelsize=5)
 	plt.title('Bound genes by class',fontsize=5)
 	
-def plot_ReadsPerCluster():
-	readPerCluster=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters.readsPerCluster'%(threshold_nr,index_tag)
+def plot_ReadsPerCluster(threshold_nr, index_tag):
+	readPerCluster=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters.readsPerCluster'%(threshold_nr,index_tag)
 	clust=pd.DataFrame(pd.read_table(readPerCluster,header=None))
 	clust.columns=['ReadsPerCluster']
 	clust=clust['ReadsPerCluster']
@@ -888,8 +861,8 @@ def plot_ReadsPerCluster():
 	plt.xlim(0,100) # Make the histogram easy to view.
 	# plt.xlim(-interval,np.max(center)+interval)
 	
-def plot_ClusterSizes():
-	clipClusters=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters'%(threshold_nr,index_tag)
+def plot_ClusterSizes(threshold_nr, index_tag):
+	clipClusters=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters'%(threshold_nr,index_tag)
 	clust=pd.DataFrame(pd.read_table(clipClusters,header=None,skiprows=1))
 	clust.columns=['chr','start','end','name','score','strand','m1','m2']
 	clust['clusterSize']=clust['start']-clust['end']
@@ -903,8 +876,8 @@ def plot_ClusterSizes():
 	locs,pltlabels = plt.yticks(fontsize=5)
 	plt.title('Cluster size',fontsize=5)
 
-def plot_clusterBindingIntensity():
-	clusterCenterHeatmap=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_CLIP_clusters.clusterCenter_heatmap.txt'%(threshold_nr,index_tag)
+def plot_clusterBindingIntensity(threshold_nr, index_tag):
+	clusterCenterHeatmap=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters_cleaned_sorted.clusterCenter_heatmap.txt'%(threshold_nr,index_tag)
 	hmap=pd.DataFrame(pd.read_table(clusterCenterHeatmap,header=None,skiprows=1))
 	hmap_vals=hmap.ix[:,1:]
 	sums=hmap_vals.sum(axis=1)
@@ -940,28 +913,29 @@ def plot_readsBymRNAregion(ax):
 		wedge.set_edgecolor('black')
 		wedge.set_lw(1)
 		
-def plot_figure1(nsamp, reads):
+def plot_figure1(nsamp, reads, threshold_nr, index_tag):
 	if cfg.run_clipper:
 		plt.subplot(2,3,1) 
-		plot_ReadAccounting(nsamp, reads)
+		plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag)
 		plt.subplot(2,3,2)
-		plot_ReadsPerCluster()
+		plot_ReadsPerCluster(threshold_nr, index_tag)
 		plt.subplot(2,3,3)
-		plot_ClusterSizes()
+		plot_ClusterSizes(threshold_nr, index_tag)
 		plt.subplot(2,3,4)
-		plot_clusterBindingIntensity()
+		plot_clusterBindingIntensity(threshold_nr, index_tag)
 		ax = plt.subplot(2,3,5)
 		plot_readsBymRNAregion(ax)
 		plt.subplot(2,3,6)
 		plot_BoundGeneTypes()
 	else:
-		plt.subplot(1,3,1) 
-		plot_ReadAccounting(nsamp, reads)
-		ax = plt.subplot(1,3,2)
+		plt.subplot(2,3,1) 
+		plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag)
+		ax = plt.subplot(2,3,2)
 		plot_readsBymRNAregion(ax)
-		plt.subplot(1,3,3)
+		plt.subplot(2,3,3)
 		plot_BoundGeneTypes()
-		
+	plt.tight_layout()
+	
 ############
 ## PLOT 2 ##
 ############
@@ -982,7 +956,7 @@ def plot_mRNAgeneBodyDist():
 	plt.tick_params(axis='y',labelsize=5) 
 	plt.title('CLIP signal across average mRNA transcript.',fontsize=5)
 
-def convertENBLids(enst_name):
+def convertENBLids(enst_name, ensemblGeneAnnot):
 	ensg_name=ensemblGeneAnnot.loc[enst_name,'name2']
 	return ensg_name
 
@@ -1008,12 +982,12 @@ def getUTRbindingProfile(utr,hmap_m):
 	hmap_m_utrSpec_filter=hmap_m_utrSpec_filter.loc[np.argsort(sums),:]
 	return hmap_m_utrSpec_filter
 
-def plot_geneBodyPartition():
+def plot_geneBodyPartition(ensemblGeneAnnot):
 	treatMatrix=cfg.outfilepath+'clipGenes_proteinCoding_LowFDRreads_centerCoord_UTRs_scaled_cds200_abt0_treatmatrix.txt'
 	hmap=pd.DataFrame(pd.read_table(treatMatrix,header=None,skiprows=1))
 	
 	# Ensure genes recovered from this analysis are independently identified using partitioning of CLIPper cluster data.
-	hmap['ENSG_ID']=hmap.ix[:,0].apply(convertENBLids)
+	hmap['ENSG_ID']=hmap.ix[:,0].apply(convertENBLids, args=(ensemblGeneAnnot,))
 	bound_pc = cfg.outfilepath+'clipGenes_proteinCoding'
 	pc_genes=pd.DataFrame(pd.read_table(bound_pc,header=None,))
 	pc_genes.columns=['ENSG_ID']
@@ -1311,3 +1285,43 @@ def plot_ncrnas(st_stopFiles, expand):
 		plt.xlabel('Fraction of gene body (5p - 3p)',fontsize=5)
 		plt.title('Binding profile for %s'%name,fontsize=5)
 		i+=1
+
+def clean_up():
+	os.chdir(cfg.outfilepath)
+	os.system("mkdir figures")
+	os.system("mv Figure* figures")
+	
+	os.system("mkdir RepeatRNA")
+	os.system("mv PlotData_RepeatRNA* RepeatRNA")
+	
+	os.system("mkdir ReadsPerGene")
+	os.system("mv PlotData_ReadsPerGene* ReadsPerGene")
+	
+	os.system("mkdir PlotData_Other")
+	os.system("mv PlotData* PlotData_Other")
+	
+	os.system("mkdir ProteinCoding")
+	os.system("mv clipGenes_proteinCoding* ProteinCoding")
+	
+	os.system("mkdir rawdata_and_stats")
+	os.system("mv *stats* *.bam *Log.final.out rawdata_and_stats")
+	os.system("mv runLog rawdata_and_stats")
+	
+	os.system("mkdir bedfiles")
+	os.system("mv *.mergedRT.bed bedfiles")
+	os.system("mv *.bw *.bedGraph *_cleaned_sorted.bed *_centerCoord.bed bedfiles")
+	if cfg.run_clipper:
+		os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads* rawdata_and_stats")
+		os.system("mv *.mergedRT_CLIP_clusters.bed rawdata_and_stats")
+	else:
+		os.system("mv *_ens_annotated.bed bedfiles")
+
+	os.system("mkdir tRNA")
+	os.system("mv *iclipro/ tRNA")
+	os.system("mv *isotypes* *trnaReads.txt *histo.txt tRNA")
+
+	os.system("mkdir todelete")
+	os.system("mv *.* todelete")
+	os.system("mv clipGenes_* todelete")
+	os.system("mv rawdata_and_stats/runLog ./")
+	

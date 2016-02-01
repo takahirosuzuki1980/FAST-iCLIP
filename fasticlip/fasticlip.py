@@ -260,7 +260,7 @@ def main():
 	if not cfg.run_clipper: 
 		log("\nAnnotating reads by gene")
 		CLIPPERlowFDR = annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed)
-		# CLIPperGeneList  # list of genes; commented out all things making this
+		CLIPperGeneList = make_gene_list_from_annotation(CLIPPERlowFDR) # list of genes; commented out all things making this
 		# CLIPperOutBed  # cluster file; we're not making this, and this is not used anywhere else
 	else:
 		log("\nRunning CLIPper.")
@@ -275,22 +275,20 @@ def main():
 
 	# 4. Partition reads by gene type
 	
+	# - all
 	log("\nPartition reads by type.")
-	if cfg.run_clipper:
-		pathToGeneLists = getLowFDRGeneTypes(CLIPperGeneList,geneAnnot)
-		pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
-	else:
-		pathToGeneLists = getAllGeneTypes(geneAnnot)
-		pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
-	
+	pathToGeneLists = getLowFDRGeneTypes(CLIPperGeneList,geneAnnot)
+	pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+		
+	# - protein coding
 	geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
 	proteinCodingReads = cfg.outfilepath + 'clipGenes_proteinCoding_LowFDRreads.bed'
 	proteinCodingReads_centered = getBedCenterPoints(proteinCodingReads, expand)
-	proteinBedGraph = makeBedGraph(proteinCodingReads_centered, genomeFile)
 	geneCounts_pc = get_gene_counts(proteinCodingReads_centered) 
 	cfg.outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
 	geneCounts_pc.to_csv(cfg.outfilepathToSave)
-
+	
+	# - lncRNA
 	lincRNAReads = cfg.outfilepath + 'clipGenes_lincRNA_LowFDRreads.bed'
 	lincRNAReads_centered = getBedCenterPoints(lincRNAReads, expand)
 	if os.stat(lincRNAReads_centered).st_size > 0:
@@ -305,19 +303,21 @@ def main():
 		ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
 		outfilepathToSave = lincRNAReads_centered.replace(".bed",".geneStartStop")
 		ncRNA_startStop.to_csv(outfilepathToSave)
-
+	
+	# - snoRNA
 	bedFile_sno = getSnoRNAreads(CLIPPERlowFDRcenters, snoRNAindex)
 	if os.stat(bedFile_sno).st_size > 0:
 		geneCounts_sno = countSnoRNAs(bedFile_sno) 
 		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_snoRNA'
 		geneCounts_sno.to_csv(outfilepathToSave)
-		
+	
+	# - other
 	remaining = [f for f in glob.glob(cfg.outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
 	countRemainingGeneTypes(remaining)
 
 	if cfg.run_clipper:
 		log("Get binding intensity around cluster centers.")
-		bedGraphCLIPin=makeBedGraph(CLIPPERin,genomeFile)
+		bedGraphCLIPin=makeBedGraph(sno_mirna_filtered_reads,genomeFile)
 		centerCoordinates=makeClusterCenter(CLIPperOutBed) 
 		getClusterIntensity(bedGraphCLIPin,centerCoordinates)
 
@@ -355,7 +355,8 @@ def main():
 
 	# 6. Analysis of gene bodies, CLIP binding sites (iCLIPro), tRNAs
 	
-	log("\nGene body analysis.")
+	log("\nMake metagene.")
+	proteinBedGraph = makeBedGraph(proteinCodingReads_centered, genomeFile)
 	makeAvgGraph(proteinBedGraph, utrFile, genesFile, sizesFile)
 
 	log("\nncRNA gene body analysis.")
@@ -396,19 +397,18 @@ def main():
 
 	log("Making Figure 1")
 	fig1 = plt.figure(1)
-	plot_figure1(nsamp, reads)
+	plot_figure1(nsamp, reads, threshold_nr, index_tag)
 	fig1.tight_layout()
 	fig1.savefig(cfg.outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
 
 	log("Making Figure 2")
 	ensemblGeneAnnot = pd.DataFrame(pd.read_table(genesFile))
 	ensemblGeneAnnot = ensemblGeneAnnot.set_index('name') # Make ENST the index
-	plot_geneBodyPartition()
 
 	fig2 = plt.figure(2)
 	plt.subplot2grid((2,4),(0,0),colspan=4)
 	plot_mRNAgeneBodyDist()
-	plot_geneBodyPartition()
+	plot_geneBodyPartition(ensemblGeneAnnot)
 	fig2.tight_layout()
 	fig2.savefig(cfg.outfilepath+'Figure2.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
 	fig2.savefig(cfg.outfilepath+'Figure2.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
@@ -450,47 +450,5 @@ def main():
 	clean_up()
 	cfg.logOpen.close()
 
-def clean_up():
-	os.chdir(cfg.outfilepath)
-	os.system("mkdir figures")
-	os.system("mv Figure* figures")
-	
-	os.system("mkdir RepeatRNA")
-	os.system("mv PlotData_RepeatRNA* RepeatRNA")
-	
-	os.system("mkdir ReadsPerGene")
-	os.system("mv PlotData_ReadsPerGene* ReadsPerGene")
-	
-	os.system("mkdir PlotData_Other")
-	os.system("mv PlotData* PlotData_Other")
-	
-	os.system("mkdir ProteinCoding")
-	os.system("mv clipGenes_proteinCoding* ProteinCoding")
-	
-	os.system("mkdir rawdata_and_stats")
-	os.system("mv *stats* *.bam *Log.final.out rawdata")
-	os.system("mv runLog rawdata")
-	
-	os.system("mkdir bedfiles")
-	os.system("mv *.mergedRT.bed bedfiles")
-	os.system("mv *.bw *.bedGraph *_cleaned_sorted.bed *_centerCoord.bed bedfiles")
-	if cfg.run_clipper:
-		os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads* rawdata")
-		os.system("mv *.mergedRT_CLIP_clusters.bed rawdata")
-	else:
-		os.system("mv *_ens_annotated.bed bedfiles")
-
-	os.system("mkdir tRNA")
-	os.system("mv *iclipro/ tRNA")
-	os.system("mv *isotypes* *trnaReads.txt *histo.txt tRNA")
-
-	os.system("mkdir todelete")
-	os.system("mv *.* todelete")
-	os.system("mv clipGenes_* todelete")
-	os.system("mv rawdata/runLog ./")
-	
 if __name__ == "__init__":
 	main()
-
-
-
