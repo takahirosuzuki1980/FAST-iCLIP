@@ -4,6 +4,14 @@
 - can run the other scripts (viralgenome, motifAnalysis) outside the installation directory
 - Need to move all global variables to cfg.py
 - Add hg38 and mm10 annotation files
+- Update docs.tar.gz 
+
+## [0.9.1] - 2016-01-31
+### Fixed
+- Script runs to completion with --clipper
+- Figure 1 is no longer stretched out vertically
+- When not using CLIPper, protein-coding genes are now correctly enumerated
+- Folder structure is now correct
 
 ## [0.9.0] - 2016-01-29
 ### Added
