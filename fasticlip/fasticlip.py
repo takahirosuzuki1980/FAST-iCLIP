@@ -90,7 +90,6 @@ q = args.q # Minimum quality score to keep during filtering.
 p = args.p # Percentage of bases that must have quality > q during filtering.
 l = args.l +  args.f - 1 # Minimum length of read + 5' adapter
 iCLIP5pBasesToTrim=args.f # Number of reads to trim from 5' end of clip reads + 1 (this number represents the first base kept)
-k = '1' # k=N distinct, valid alignments for each read in bt2 mapping.
 expand = 15 # Bases to expand around RT position after RT stops are merged.
 cfg.run_clipper = True if args.clipper else False
 cfg.verbose = True if args.verbose else False
@@ -125,6 +124,7 @@ if org == 'human':
 	repeat_index=cfg.home + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
 	repeatGenomeBuild=cfg.home+'/docs/hg19/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
 	repeatAnnotation=cfg.home+'/docs/hg19/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	retro_index=cfg.home+'/docs/hg19/retroviral/retro_spaced'
 	start18s=3657
 	end18s=5527
 	start5s=6623
@@ -155,6 +155,7 @@ elif org == 'mouse':
 	repeat_index=cfg.home + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
 	repeatGenomeBuild=cfg.home+'/docs/mm9/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
 	repeatAnnotation=cfg.home+'/docs/mm9/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	retro_index=cfg.home+'/docs/mm9/retroviral/retro_spaced'
 	start18s=4007
 	end18s=5876
 	start5s=6877
@@ -184,16 +185,15 @@ elif org == 'mouse':
 
 ### start running pipeline ###
 now=datetime.datetime.now()
-cfg.logOpen.write("Timestamp:%s\n"%str(now))
+cfg.logOpen.write("Timestamp: %s\n"%str(now))
 cfg.logOpen.write("\n###Parameters used###\n")
-cfg.logOpen.write("3' barcode:%s\n'"%iCLIP3pBarcode)
-cfg.logOpen.write("Minimum quality score (q):%s\n"%q)
-cfg.logOpen.write("Percentage of bases with > q:%s\n"%p)
-cfg.logOpen.write("5' bases to trim:%s\n'"%iCLIP5pBasesToTrim)
-cfg.logOpen.write("k distinct, valid alignments for each read in bt2 mapping:%s\n"%k)
+cfg.logOpen.write("3' barcode: %s\n'"%iCLIP3pBarcode)
+cfg.logOpen.write("Minimum quality score (q): %s\n"%q)
+cfg.logOpen.write("Percentage of bases with > q: %s\n"%p)
+cfg.logOpen.write("5' bases to trim: %s\n'"%iCLIP5pBasesToTrim)
 cfg.logOpen.write("Threshold for minimum number of RT stops (repeat): %s samples with >= %s RT stops\n"%(minpass_rep, threshold_rep))
 cfg.logOpen.write("Threshold for minimum number of RT stops (nonrepeat): %s samples with >= %s RT stops\n"%(minpass_nr, threshold_nr))
-cfg.logOpen.write("Bases for expansion around conserved RT stops:%s\n"%expand)
+cfg.logOpen.write("Bases for expansion around conserved RT stops: %s\n"%expand)
 cfg.logOpen.write("\n\n\n")
 
 def main():
@@ -212,10 +212,11 @@ def main():
 	else: processed_reads = reads
 
 	log("\nRun mapping to indexes.")
-	(rep_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, tRNAindex, star_index)
+	(rep_sam, retro_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, retro_index, tRNAindex, star_index)
 
 	log("\nRun samtools.")
 	rep_bed = run_samtools(rep_sam, mapq)
+	retro_bed = run_samtools(retro_sam, mapq)  # do more with this later
 	trna_bed = run_samtools(trna_sam, mapq)
 	gen_bed = run_samtools(gen_sam, 255) # we're using STAR here so 255 signifies unique mapping
 

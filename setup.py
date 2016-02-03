@@ -4,7 +4,7 @@ from setuptools import setup
 import sys, site, os
 
 setup(name='fasticlip',
-      version='0.9.1',
+      version='0.9.2',
       description='Fully Automated and Standardized iCLIP (FAST-iCLIP) is a fully automated tool to process iCLIP data.',
       
 	  #install_requires = ['numpy>=1.7', 'pandas>=0.14', 'matplotlib_venn>=0.11', 'matplotlib>=1.3.1'],

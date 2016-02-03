@@ -75,12 +75,13 @@ def trim(reads, adapter3p, l, n):
 ### MAPPING  ###
 ################
 
-def runBowtie(processed_reads, repeat_index, trna_index, star_index):
+def runBowtie(processed_reads, repeat_index, retro_index, trna_index, star_index):
 	# Usage: Read mapping.
 	# Input: Fastq files of replicate trimmed read files.
 	# Output: Path to samfile for each read.
 
 	rep_sam = []
+	retro_sam = []
 	trna_sam = []
 	genome_sam = []
 	for infastq in processed_reads:
@@ -90,10 +91,14 @@ def runBowtie(processed_reads, repeat_index, trna_index, star_index):
 
 		rep_unmapped = infastq.replace(".fastq", "_notMappedToRepeat.fastq")
 		rep_unmapped = cfg.outfilepath + os.path.basename(rep_unmapped)
-		trna_mapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_mappedToTrna.sam")
+		retro_mapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_mappedToRetro.sam")
+		retro_sam.append(retro_mapped)
+		
+		retro_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToRetro.fastq")
+		trna_mapped = retro_unmapped.replace("_notMappedToRetro.fastq", "_mappedToTrna.sam")
 		trna_sam.append(trna_mapped)
 
-		trna_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToTrna.fastq")
+		trna_unmapped = retro_unmapped.replace("_notMappedToRetro.fastq", "_notMappedToTrna.fastq")
 		genome_star_prefix = trna_unmapped.replace("_notMappedToTrna.fastq", "")
 		genome_star_output = trna_unmapped.replace("_notMappedToTrna.fastq", "Aligned.out.sam")
 		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", "_mappedToGenome.sam")
@@ -107,9 +112,14 @@ def runBowtie(processed_reads, repeat_index, trna_index, star_index):
 		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(repeat_index, infastq, rep_unmapped, rep_mapped, rep_mapped + '_stats.txt')
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
+		
+		log("Mapping {} to retroviral".format(infastq))
+		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(retro_index, rep_unmapped, retro_unmapped, retro_mapped, retro_mapped + '_stats.txt')
+		if cfg.verbose: log(cmd)
+		os.system(cmd)
 				
-		log("Mapping {} to repeat".format(infastq))
-		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(trna_index, rep_unmapped, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
+		log("Mapping {} to tRNA".format(infastq))
+		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(trna_index, retro_unmapped, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
 		
@@ -123,7 +133,7 @@ def runBowtie(processed_reads, repeat_index, trna_index, star_index):
 			exit()
 		os.system("mv {} {}".format(genome_star_output, genome_mapped))
 		
-	return rep_sam, trna_sam, genome_sam
+	return rep_sam, retro_sam, trna_sam, genome_sam
 
 def run_samtools(samfiles, mapq):
 	# Usage: Samfile processing (also takes unique mappers only)
@@ -811,6 +821,8 @@ def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 	if cfg.verbose: log(str(fileNames))
 	if cfg.verbose: log(counts)
 	readDF=pd.DataFrame()
+	readDF['File_name'] = fileNames
+	readDF['Reads_per_file'] = counts
 	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadsPerPipeFile'
 	readDF.to_csv(outfilepathToSave)
 
