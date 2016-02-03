@@ -1,10 +1,19 @@
 # Changelog
 
-## Unreleased
+## Unreleased / Known issues
+- Thresholding doesn't work for repeat??
 - can run the other scripts (viralgenome, motifAnalysis) outside the installation directory
 - Need to move all global variables to cfg.py
 - Add hg38 and mm10 annotation files
-- Update docs.tar.gz 
+- docs.tar.gz needs to be updated
+- Add more analysis of retroviral data (currently in another script)
+
+## [0.9.2] - 2016-02-02
+### Added
+- Maps to retroviral index now
+
+### Fixed
+- ReadsPerPipeFile now outputs counts
 
 ## [0.9.1] - 2016-01-31
 ### Fixed
