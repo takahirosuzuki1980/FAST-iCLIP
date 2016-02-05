@@ -75,7 +75,7 @@ def trim(reads, adapter3p, l, n):
 ### MAPPING  ###
 ################
 
-def runBowtie(processed_reads, repeat_index, retro_index, trna_index, star_index):
+def runBowtie(processed_reads, repeat_index, retro_index, trna_index, star_index, star_ratio):
 	# Usage: Read mapping.
 	# Input: Fastq files of replicate trimmed read files.
 	# Output: Path to samfile for each read.
@@ -125,7 +125,7 @@ def runBowtie(processed_reads, repeat_index, retro_index, trna_index, star_index
 		
 		#cmd = "bowtie2 -p 8 -x {} {} -S {} > {} 2>&1".format(genome_index, trna_unmapped, genome_mapped, genome_mapped + '_stats.txt')
 		log("Mapping {} to genome".format(infastq))
-		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd".format(star_index, trna_unmapped, genome_star_prefix)
+		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {}".format(star_index, trna_unmapped, genome_star_prefix, star_ratio)
 		if cfg.verbose: log(cmd)
 		star_res = os.system(cmd)
 		if star_res != 0:

@@ -43,7 +43,8 @@ parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' 
 parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the end of each read. Default is AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.", default='AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG')
 parser.add_argument('-tr', metavar='REPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
 parser.add_argument('-tn', metavar='NONREPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
-parser.add_argument('-m', metavar='MAPQ', type=int, help="Minimum MAPQ (Bowtie alignment) score allowed. Default is 42.", default=42)
+parser.add_argument('-sr', metavar='STAR_RATIO', type=float, help="Maximum mismatches per base allowed for STAR genome mapping (corresponds to outFilterMismatchNoverLmax). Default is 0.08 (2 mismatches per 25 mapped bases).", default=0.08)
+parser.add_argument('-bm', metavar='BOWTIE_MAPQ', type=int, help="Minimum MAPQ (Bowtie alignment to repeat/tRNA/retroviral indexes) score allowed. Default is 42.", default=42)
 parser.add_argument('-q', metavar='Q', type=int, help="Minimum average quality score allowed during read filtering. Default is 25.", default=25)
 parser.add_argument('-p', metavar='P', type=int, help="Percentage of bases that must have quality > q during read filtering. Default is 80.", default=80)
 parser.add_argument('-l', metavar='L', type=int, help="Minimum length of read. Default is 15.", default=15)
@@ -85,7 +86,8 @@ cfg.logOpen=open(cfg.logFile, 'w')
 ### Parameters ###
 
 iCLIP3pBarcode = args.a # Barcode sequence to trim from reads.
-mapq = args.m # Minimum MAPQ score allowed
+star_ratio = args.sr  # Maximum mismatch/base ratio allowed for STAR
+mapq = args.bm # Minimum MAPQ score allowed allowed for Bowtie2
 q = args.q # Minimum quality score to keep during filtering.
 p = args.p # Percentage of bases that must have quality > q during filtering.
 l = args.l +  args.f - 1 # Minimum length of read + 5' adapter
@@ -212,7 +214,7 @@ def main():
 	else: processed_reads = reads
 
 	log("\nRun mapping to indexes.")
-	(rep_sam, retro_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, retro_index, tRNAindex, star_index)
+	(rep_sam, retro_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, retro_index, tRNAindex, star_index, star_ratio)
 
 	log("\nRun samtools.")
 	rep_bed = run_samtools(rep_sam, mapq)
