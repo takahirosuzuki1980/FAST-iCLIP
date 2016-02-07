@@ -231,7 +231,7 @@ def trna_isotype_count(trna_samfiles, minpass, threshold):
 		row = [trna]
 		for pos in range(80):
 			nums = np.array(allreps_isotype_to_histo[trna][pos])
-			if len(nums[nums >= threshold] >= minpass): row.append(sum(nums))
+			if len(nums[nums >= threshold]) >= minpass: row.append(sum(nums))
 			else: row.append(0)
 		writer.writerow(row)
 	ofile.close()		
@@ -369,8 +369,8 @@ def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand,
 	
 	cts = [RTcounts(fn) for fn in RTstopFiles]
 	m = pd.concat(cts, axis=1, join='inner')
-	m['numpass'] = m.apply(lambda x: countPassed(x, threshold), axis=1)
-	m = m[m['numpass'] >= minpass]
+	numpass = m.apply(lambda x: countPassed(x, threshold), axis=1)
+	m = m[numpass >= minpass]
 	m_filter = m.copy(deep=True)
 	m_filter['sum'] = m.apply(sum, axis=1)
 	m_filter['mean'] = m.apply(np.mean, axis=1)
@@ -828,8 +828,14 @@ def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 
 def plot_BoundGeneTypes():
 	record=pd.DataFrame()   
-	# Exclude specific files (e.g., UTR-specific reads).
-	geneListToPlot=[f for f in glob.glob(cfg.outfilepath+'PlotData_ReadsPerGene_*') if '5pUTR' not in f and '3pUTR' not in f and 'CDS' not in f]
+	
+	# Exclude specific files
+	geneListToPlot = []	
+	for f in glob.glob(cfg.outfilepath+'PlotData_ReadsPerGene_*'):
+		for g in ['5pUTR', '3pUTR', 'Introns', 'Exons', 'CDS']:
+			if g in f: continue
+		geneListToPlot.append(f)
+		
 	for boundGenes in geneListToPlot:
 		glist=pd.read_csv(boundGenes,header=None)
 		glist.columns=['GeneName','Count']

@@ -429,12 +429,11 @@ def main():
 	fig4.tight_layout()
 	fig4.savefig(cfg.outfilepath+'Figure4.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
 	fig4.savefig(cfg.outfilepath+'Figure4.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
-		
-	snorna_file = cfg.outfilepath+"clipGenes_snoRNA_LowFDRreads.bed"
-	if os.stat(snorna_file).st_size > 0:
-		log("Making Figure 5")
+
+	log("Making Figure 5")
+	if os.stat(bedFile_sno).st_size > 0:
 		fig5 = plt.figure(5)
-		plot_snorna(snorna_file)
+		plot_snorna(bedFile_sno)
 		fig5.tight_layout()
 		fig5.savefig(cfg.outfilepath+'Figure5.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
 		fig5.savefig(cfg.outfilepath+'Figure5.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
