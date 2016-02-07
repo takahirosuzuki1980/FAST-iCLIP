@@ -6,7 +6,7 @@
 - Add hg38 and mm10 annotation files
 - docs.tar.gz needs to be updated
 - Add more analysis of retroviral data (currently in another script)
-- 
+
 ## [0.9.3] - 2016-02-07
 ### Added
 - New flag to control STAR N over L ratio (mismatches per base). Default set at 0.08
