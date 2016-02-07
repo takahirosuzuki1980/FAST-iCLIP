@@ -1,12 +1,18 @@
 # Changelog
 
 ## Unreleased / Known issues
-- Thresholding doesn't work for repeat??
 - can run the other scripts (viralgenome, motifAnalysis) outside the installation directory
 - Need to move all global variables to cfg.py
 - Add hg38 and mm10 annotation files
 - docs.tar.gz needs to be updated
 - Add more analysis of retroviral data (currently in another script)
+- 
+## [0.9.3] - 2016-02-07
+### Added
+- New flag to control STAR N over L ratio (mismatches per base). Default set at 0.08
+
+### Fixed
+- Thresholding now implemented correctly for tRNA, repeat, and genome
 
 ## [0.9.2] - 2016-02-02
 ### Added
