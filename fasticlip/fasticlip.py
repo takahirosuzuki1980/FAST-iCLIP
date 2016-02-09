@@ -141,7 +141,6 @@ if org == 'human':
 	blacklistregions=cfg.home+'/docs/hg19/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
 	repeatregions=cfg.home+'/docs/hg19/repeat_masker.bed' # Repeat masker.
 	geneAnnot=glob.glob(cfg.home+'/docs/hg19/genes_types/*') # List of genes by type.
-	snoRNAmasker=cfg.home+'/docs/hg19/snoRNA_reference/snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
 	miRNAmasker=cfg.home+'/docs/hg19/miR_sort_clean.bed' # miRNA masker file.
 	fivePUTRBed=cfg.home+'/docs/hg19/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
 	threePUTRBed=cfg.home+'/docs/hg19/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
@@ -172,7 +171,6 @@ elif org == 'mouse':
 	blacklistregions=cfg.home+'/docs/mm9/mm9-blacklist.bed' # Blacklist masker.
 	repeatregions=cfg.home+'/docs/mm9/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
 	geneAnnot=glob.glob(cfg.home+'/docs/mm9/genes_types/*') # List of genes by type. 
-	snoRNAmasker=cfg.home+'/docs/mm9/snoRNA_reference/mm9_snoRNAmasker_formatted_5pExtend.bed' # snoRNA masker file.
 	miRNAmasker=cfg.home+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
 	fivePUTRBed=cfg.home+'/docs/mm9/mm9_5pUTR.bed' # UTR annotation file.
 	threePUTRBed=cfg.home+'/docs/mm9/mm9_3pUTR.bed' # UTR annotation file. 
@@ -180,7 +178,7 @@ elif org == 'mouse':
 	utrFile=cfg.home+'/docs/mm9/mm9_ensembl_UTR_annotation.txt' # UTR annotation file. 
 	genesFile=cfg.home+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
 	sizesFile=cfg.home+'/docs/mm9/mm9.sizes' # Genome sizes file. 
-	snoRNAindex=cfg.home+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted.bed' # snoRNA coordinate file. 
+	snoRNAindex=cfg.home+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted_types.bed' # snoRNA coordinate file. 
 	tRNAindex=cfg.home+'/docs/mm9/tRNA/tRNA_mm9'  # this is now CCA tailed
 	geneStartStopRepo=cfg.home+'/docs/mm9/all_genes.txt'
 	geneStartStopRepoBed = cfg.home+'/docs/mm9/mm9_ensembl_genes_BED6.bed'
@@ -257,8 +255,15 @@ def main():
 
 	# 3. Process genic RT stops
 	
+	log("\nGetting list of snoRNAs")
+	bedFile_sno = getSnoRNAreads(negAndPosMerged, snoRNAindex)
+	if os.stat(bedFile_sno).st_size > 0:
+		geneCounts_sno = countSnoRNAs(bedFile_sno) 
+		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_snoRNA'
+		geneCounts_sno.to_csv(outfilepathToSave)
+		
 	log("\nFiltering out snoRNAs and miRNAs")
-	sno_mirna_filtered_reads = filter_snoRNAs(negAndPosMerged, snoRNAmasker, miRNAmasker)
+	sno_mirna_filtered_reads = filter_snoRNAs(negAndPosMerged, snoRNAindex, miRNAmasker)
 
 	if not cfg.run_clipper: 
 		log("\nAnnotating reads by gene")
@@ -306,14 +311,7 @@ def main():
 		ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
 		outfilepathToSave = lincRNAReads_centered.replace(".bed",".geneStartStop")
 		ncRNA_startStop.to_csv(outfilepathToSave)
-	
-	# - snoRNA
-	bedFile_sno = getSnoRNAreads(CLIPPERlowFDRcenters, snoRNAindex)
-	if os.stat(bedFile_sno).st_size > 0:
-		geneCounts_sno = countSnoRNAs(bedFile_sno) 
-		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_snoRNA'
-		geneCounts_sno.to_csv(outfilepathToSave)
-	
+
 	# - other
 	remaining = [f for f in glob.glob(cfg.outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
 	countRemainingGeneTypes(remaining)

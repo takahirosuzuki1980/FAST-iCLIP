@@ -622,13 +622,11 @@ def get_gene_counts(bedFile):
 	geneCounts.sort(ascending=False)
 	return geneCounts
 
-def getSnoRNAreads(CLIPPERlowFDRcenters,snoRNAindex):
+def getSnoRNAreads(negAndPosMerged,snoRNAindex):
 	program='intersectBed'		
 	bedFile=cfg.outfilepath+'clipGenes_snoRNA_LowFDRreads.bed'
-	outfh=open(bedFile, 'w')
-	proc=subprocess.Popen([program,'-a',CLIPPERlowFDRcenters,'-b',snoRNAindex,'-s','-wa','-wb'],stdout=outfh)
-	proc.communicate()
-	outfh.close()	
+	cmd = "bedtools intersect -a {} -b {} -s -wa -wb -sorted > {}".format(negAndPosMerged, snoRNAindex, bedFile)
+	os.system(cmd)
 	return bedFile
 
 def countSnoRNAs(bedFile_sno):
@@ -832,9 +830,10 @@ def plot_BoundGeneTypes():
 	# Exclude specific files
 	geneListToPlot = []	
 	for f in glob.glob(cfg.outfilepath+'PlotData_ReadsPerGene_*'):
+		want = True
 		for g in ['5pUTR', '3pUTR', 'Introns', 'Exons', 'CDS']:
-			if g in f: continue
-		geneListToPlot.append(f)
+			if g in f: want = False
+		if want: geneListToPlot.append(f)
 		
 	for boundGenes in geneListToPlot:
 		glist=pd.read_csv(boundGenes,header=None)
@@ -1246,8 +1245,10 @@ def plot_snorna(snorna_file):
 			title="C/D_box"
 		elif sType=='H':
 			title="H/ACA_box"
-		else:
+		elif sType=='s':
 			title="scaRNA"
+		else:
+			title="Unknown"
 		
 		outfilepathToSave=cfg.outfilepath+'/PlotData_snoRNAReadDist_%s'%sType
 		sno_profile.to_csv(outfilepathToSave)
