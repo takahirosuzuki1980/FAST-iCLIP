@@ -610,8 +610,9 @@ def getLowFDRGeneTypes(CLIPperGeneList,geneAnnot):
 	# Output: Path to file containing all CLIPper genes of each type.
 	geneTypes=[]
 	for genepath in geneAnnot:
-		lowFDRgenes = compareLists(CLIPperGeneList, genepath, os.path.split(genepath)[1])
-		geneTypes.append(lowFDRgenes)
+		if 'snoRNA' not in genepath:
+			lowFDRgenes = compareLists(CLIPperGeneList, genepath, os.path.split(genepath)[1])
+			geneTypes.append(lowFDRgenes)
 	return geneTypes
 	
 def get_gene_counts(bedFile):
