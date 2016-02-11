@@ -1254,7 +1254,7 @@ def plot_snorna(snorna_file):
 		outfilepathToSave=cfg.outfilepath+'/PlotData_snoRNAReadDist_%s'%sType
 		sno_profile.to_csv(outfilepathToSave)
 		
-		plt.subplot(2,2,i)
+		plt.subplot(2,3,i)
 		bins=np.arange(0,1,0.01)
 		hist,bins=np.histogram(sno_profile['frac'],bins=bins)
 		hist=np.array(hist/float(sno_profile['frac'].shape[0]),dtype=float)
