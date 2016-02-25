@@ -23,7 +23,7 @@ The following README will focus mainly on `fasticlip`. The pdf in the repository
 Usage
 -----
 
-`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--hg19 | --mm9] -s STAR_INDEX -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-m MAPQ] [-q Q] [-p P] [-l L] [--verbose]`
+`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--hg19 | --mm9] -s STAR_INDEX -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-sr STAR_RATIO] [-bm BOWTIE_MAPQ] [-q Q] [-p P] [-l L] [--verbose]`
 
 Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -s /seq/STAR/indexes/mm9 -n MMhur -o results`
 
@@ -48,7 +48,8 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   -a ADAPTER     |   3' adapter to trim from the end of each read. Default is A            GATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.
   -tr REPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
   -tn NONREPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
-  -m MAPQ         |      Minimum MAPQ (Bowtie alignment) score allowed. Default is 42.
+  -sr STAR_RATIO   |     Maximum mismatches per base allowed for STAR genome mapping (corresponds to outFilterMismatchNoverLmax). Default is 0.08 (2 mismatches per 25 mapped bases).
+  -bm BOWTIE_MAPQ   |    Minimum MAPQ (Bowtie alignment to repeat/tRNA/retroviral indexes) score allowed. Default is 42.  
   -q Q         |         Minimum average quality score allowed during read filtering. Default is 25.
   -p P          |    Percentage of bases that must have quality > q during filtering. Default is 80.
   -l L           |       Minimum length of read. Default is 15.
