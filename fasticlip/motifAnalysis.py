@@ -7,12 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from matplotlib.backends.backend_pdf import PdfPages
 import pandas as pd
+plt.style.use('ggplot')
 
 matplotlib.rcParams['savefig.dpi'] = 2 * matplotlib.rcParams['savefig.dpi']
 csv.register_dialect("textdialect", delimiter='\t')
-
-# *** INPUT : Sample to process. Please fill these in
-# ---------------------------------------------------
 
 ### Parsing arguments ###
 
@@ -249,29 +247,41 @@ def plotExtractedRegion(sample,plotNum,start,end):
 # Running things
 # --------------
 outfilepath=os.getcwd()+'/results/%s/'%sampleName
-clipperClusters=glob.glob(outfilepath+'/rawdata/*threshold*mergedRT_CLIP_clusters_lowFDRreads_centerCoord_cleaned_sorted.bed')[0]
-print "Cluster file to process: %s"%clipperClusters
+
+clipperClusters = glob.glob(outfilepath + '/bedfiles/*threshold*mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters_lowFDRreads_cleaned_sorted.bed')
+if not clipperClusters:
+	clipperClusters = glob.glob(outfilepath + '/bedfiles/*threshold*mergedRT_snoRNAremoved_miRNAremoved_ens_annotated.bed')[0]
+else:
+	clipperClusters = clipperClusters[0]
+	
+print "Cluster file to process: {}".format(clipperClusters)
 
 if not args.window:
 	# regions we want to look at
 	UTRcluster_names = ['5p', '3p', 'cds', 'introns', 'exons']
-	UTRclusters = ["clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_" + x + '.bed' for x in UTRcluster_names]
+	UTRclusters = ["clipGenes_proteinCoding_LowFDRreads_centerCoord_" + x + '.bed' for x in UTRcluster_names]
+
+	# Run HOMER on all clusters
+	filteredRT = clipperClusters[:-4] + "_rtstops_summits.bed"
+	proc = subprocess.Popen(["perl","bin/filterSummit.pl", clipperClusters, filteredRT, str(filter_win)])
+	proc.communicate()
+	runHOMER(filteredRT, lengths, homer_win, args.p + '_allReads')
 	
-	# - Run HOMER on all clusters  - 
-	proc = subprocess.Popen(["dos2unix",clipperClusters])
-	# proc.communicate()
-	filteredRT = clipperClusters[:-4]+"rtstops_summits.bed"
-	proc = subprocess.Popen(["perl","filterSummit.pl",clipperClusters, filteredRT, str(filter_win)])
-	# proc.communicate()
-	runHOMER(filteredRT,lengths,homer_win,'homer_allReads')
 	# shuffledReads=shuffleBedFile(filteredRT)
 	# runHOMER(shuffledReads,lengths,'homer_allReads_shuffle')
 
-	# - Run HOMER on clusters for specific regions - 
+	# Run HOMER on clusters for specific regions
 	folderNames = [args.p + '_' + x for x in UTRcluster_names]
 	i=0
 	for clusterFile in UTRclusters:
-		runHOMER(outfilepath + '/rawdata/' + clusterFile,lengths,homer_win,folderNames[i])
+		infile = outfilepath + '/ProteinCoding/' + clusterFile
+		print "{} file to process: {}".format(UTRcluster_names[i], infile)
+
+		filteredRT = infile[:-4] + "_rtstops_summits.bed"
+		proc = subprocess.Popen(["perl","bin/filterSummit.pl", infile, filteredRT, str(filter_win)])
+		proc.communicate()
+		
+		runHOMER(filteredRT, lengths, homer_win, folderNames[i])
 		i+=1
 else:
 	# Input: Extract all reads in the region of interest

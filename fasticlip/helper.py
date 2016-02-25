@@ -34,7 +34,6 @@ def remove_dup(reads, q, p):
 			
 		uniq_reads.append(outread)
 		if glob.glob(outread):
-			uniq_reads=uniq_reads+[outread]
 			log("Filtering and duplicate removal already done.")
 			continue
 			
@@ -371,27 +370,36 @@ def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand,
 	m = pd.concat(cts, axis=1, join='inner')
 	numpass = m.apply(lambda x: countPassed(x, threshold), axis=1)
 	m = m[numpass >= minpass]
+
 	m_filter = m.copy(deep=True)
 	m_filter['sum'] = m.apply(sum, axis=1)
 	m_filter['mean'] = m.apply(np.mean, axis=1)
 	m_filter['stdev'] = m.apply(np.std, axis=1)
 	
 	f = open(outfilename, 'w')
+	fw = csv.writer(f, 'textdialect')
 	fs = open(statsfilename, 'w')
+	fsw = csv.writer(fs, 'textdialect')
 	for i in m_filter.index:
 		chrom = i[0]
 		RT = i[1]
 		count = m_filter.loc[i,'sum']
 		mean = str(m_filter.loc[i, 'mean'])
 		stdev = str(m_filter.loc[i, 'stdev'])
+		
 		if RT > expand:
-			read = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand))+'\n'
-			sread = '\t'.join((chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand, mean, stdev))+'\n'
+			read = [chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand]
+			sread = [chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand]
+			sread.extend(m.loc[i])
+			sread.extend([mean, stdev])
 		else:
-			read = '\t'.join((chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand))+'\n'
-			sread = '\t'.join((chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand, mean, stdev))+'\n'
-		f.write(read*(count))
-		fs.write(sread)
+			read = [chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand]
+			sread = [chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand]
+			sread.extend(m.loc[i])
+			sread.extend([mean, stdev])
+		fsw.writerow(sread)
+		for _ in range(int(count)):
+			fw.writerow(read)
 	f.close()
 	fs.close()
 	
@@ -800,7 +808,7 @@ def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 	counter = 0
 	for fileString in filesToCount:
 		temp = lineCount(fileString)
-		if counter < 4:
+		if '.fastq' in fileString:
 			temp = temp/4 # Fastq files
 		counts = counts+[temp]
 		counter += 1

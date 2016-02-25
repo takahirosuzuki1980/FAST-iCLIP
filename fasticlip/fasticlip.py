@@ -223,8 +223,7 @@ def main():
 	# 2. Process repeat RT stops
 	
 	log("\nRun repeat and blacklist region masker.")
-	gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
-
+	
 	log("\nRepeat RT stop isolation.")
 	readsByStrand_rep=separateStrands(rep_bed)
 	negativeRTstop_rep=isolate5prime(modifyNegativeStrand(readsByStrand_rep[0])) 
@@ -234,12 +233,14 @@ def main():
 	posMerged = cfg.outfilepath+cfg.sampleName+'_repeat_positivereads.mergedRT'
 	negMerged = cfg.outfilepath+cfg.sampleName+'_repeat_negativereads.mergedRT'
 	negAndPosMerged = cfg.outfilepath+cfg.sampleName+'_threshold=%s'%threshold_rep+'_repeat_allreads.mergedRT.bed'
+	
 	mergeRT(positiveRTstop_rep, posMerged, posMerged + '_stats', minpass_rep, threshold_rep, expand, '+')
 	mergeRT(negativeRTstop_rep, negMerged, negMerged + '_stats', minpass_rep, threshold_rep, expand, '-')
 	fileCat(negAndPosMerged, [posMerged, negMerged])
 	fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
 	log("Nonrepeat RT stop isolation.")
+	gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
 	readsByStrand = separateStrands(gen_norepeat_bed)
 	negativeRTstop = isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
 	positiveRTstop = isolate5prime(readsByStrand[1]) 
