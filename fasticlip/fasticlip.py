@@ -5,7 +5,6 @@ import os, cmath, math, sys, glob, subprocess, re, argparse, shutil, datetime, c
 from helper import *
 import cfg
 import numpy as np
-from matplotlib_venn import venn2
 import pandas as pd
 from collections import defaultdict
 from operator import itemgetter
@@ -276,12 +275,20 @@ def main():
 		CLIPPERout = runCLIPPER(sno_mirna_filtered_reads, genomeForCLIPper, genomeFile)
 		[CLIPPERlowFDR, CLIPperReadsPerCluster, CLIPperGeneList, CLIPperOutBed] = modCLIPPERout(sno_mirna_filtered_reads, CLIPPERout)
 
-	log("Make bedGraph")
+	log("Make bedGraphs")
+	
+	# pre-masking, pre-CLIPper/gene annotation bedgraph
+	cleanBed = cleanBedFile(negAndPosMerged)
+	bedGraphCLIPout = makeBedGraph(negAndPosMerged,genomeFile)
+	CLIPPERlowFDRcenters = getBedCenterPoints(negAndPosMerged, expand)
+	allLowFDRCentersBedGraph = makeBedGraph(CLIPPERlowFDRcenters, genomeFile)
+	
+	# post-masking, post-CLIPper/gene annotation bedgraph
 	cleanBed = cleanBedFile(CLIPPERlowFDR)
 	bedGraphCLIPout = makeBedGraph(cleanBed,genomeFile)
 	CLIPPERlowFDRcenters = getBedCenterPoints(CLIPPERlowFDR, expand)
-	allLowFDRCentersBedGraph = makeBedGraph(CLIPPERlowFDRcenters,genomeFile)
-
+	allLowFDRCentersBedGraph = makeBedGraph(CLIPPERlowFDRcenters, genomeFile)	
+	
 	# 4. Partition reads by gene type
 	
 	# - all

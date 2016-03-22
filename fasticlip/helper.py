@@ -3,7 +3,6 @@
 import os, cmath, math, sys, glob, subprocess, re, argparse, shutil, datetime, csv, commands
 import numpy as np
 import cfg
-from matplotlib_venn import venn2
 import pandas as pd
 from collections import defaultdict
 from operator import itemgetter
