@@ -125,7 +125,7 @@ if org == 'human':
 	repeat_index=cfg.home + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
 	repeatGenomeBuild=cfg.home+'/docs/hg19/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
 	repeatAnnotation=cfg.home+'/docs/hg19/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
-	retro_index=cfg.home+'/docs/hg19/retroviral/retro_spaced'
+	retro_index=cfg.home+'/docs/hg19/retroviral/'
 	start18s=3657
 	end18s=5527
 	start5s=6623
@@ -155,7 +155,7 @@ elif org == 'mouse':
 	repeat_index=cfg.home + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
 	repeatGenomeBuild=cfg.home+'/docs/mm9/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
 	repeatAnnotation=cfg.home+'/docs/mm9/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
-	retro_index=cfg.home+'/docs/mm9/retroviral/retro_spaced'
+	retro_index=cfg.home+'/docs/mm9/retroviral/'
 	start18s=4007
 	end18s=5876
 	start5s=6877
@@ -211,13 +211,13 @@ def main():
 	else: processed_reads = reads
 
 	log("\nRun mapping to indexes.")
-	(rep_sam, retro_sam, trna_sam, gen_sam) = runBowtie(processed_reads, repeat_index, retro_index, tRNAindex, star_index, star_ratio)
+	(rep_sam, retro_sam, trna_sam, gen_sam) = run_mapping(processed_reads, repeat_index, retro_index, tRNAindex, star_index, star_ratio)
 
 	log("\nRun samtools.")
-	rep_bed = run_samtools(rep_sam, mapq)
-	retro_bed = run_samtools(retro_sam, mapq)  # do more with this later
-	trna_bed = run_samtools(trna_sam, mapq)
-	gen_bed = run_samtools(gen_sam, 255) # we're using STAR here so 255 signifies unique mapping
+	rep_bed = run_samtools(rep_sam, "-q {}".format(mapq))
+	retro_bed = run_samtools(retro_sam)  # do more with this later, so no flags yet
+	trna_bed = run_samtools(trna_sam, "-q {}".format(mapq))
+	gen_bed = run_samtools(gen_sam, "-q 255") # we're using STAR here so 255 signifies unique mapping
 
 	# 2. Process repeat RT stops
 	

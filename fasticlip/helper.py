@@ -73,7 +73,7 @@ def trim(reads, adapter3p, l, n):
 ### MAPPING  ###
 ################
 
-def runBowtie(processed_reads, repeat_index, retro_index, trna_index, star_index, star_ratio):
+def run_mapping(processed_reads, repeat_index, retro_index, trna_index, star_index, star_ratio):
 	# Usage: Read mapping.
 	# Input: Fastq files of replicate trimmed read files.
 	# Output: Path to samfile for each read.
@@ -112,10 +112,15 @@ def runBowtie(processed_reads, repeat_index, retro_index, trna_index, star_index
 		os.system(cmd)
 		
 		log("Mapping {} to retroviral".format(infastq))
-		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(retro_index, rep_unmapped, retro_unmapped, retro_mapped, retro_mapped + '_stats.txt')
+		#cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(retro_index, rep_unmapped, retro_unmapped, retro_mapped, retro_mapped + '_stats.txt')
+		#print genome_star_prefix + "_retro", genome_star_prefix + "_retroAligned.out.sam"
+		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {} --outReadsUnmapped Fastx".format(retro_index, rep_unmapped, genome_star_prefix + "_retro", star_ratio)
+
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
-				
+		os.system("mv {} {}".format(genome_star_prefix + "_retroAligned.out.sam", retro_mapped))
+		os.system("mv {} {}".format(genome_star_prefix + "_retroUnmapped.out.mate1", retro_unmapped))
+		
 		log("Mapping {} to tRNA".format(infastq))
 		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(trna_index, retro_unmapped, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
 		if cfg.verbose: log(cmd)
@@ -125,15 +130,12 @@ def runBowtie(processed_reads, repeat_index, retro_index, trna_index, star_index
 		log("Mapping {} to genome".format(infastq))
 		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {}".format(star_index, trna_unmapped, genome_star_prefix, star_ratio)
 		if cfg.verbose: log(cmd)
-		star_res = os.system(cmd)
-		if star_res != 0:
-			log("STAR must be version 2.4.0 or higher; please check that this is the case.")
-			exit()
+		os.system(cmd)
 		os.system("mv {} {}".format(genome_star_output, genome_mapped))
 		
 	return rep_sam, retro_sam, trna_sam, genome_sam
 
-def run_samtools(samfiles, mapq):
+def run_samtools(samfiles, flags=""):
 	# Usage: Samfile processing (also takes unique mappers only)
 	# Input: Sam files from Bowtie mapping.
 	# Output: Sorted bedFiles.
@@ -145,7 +147,7 @@ def run_samtools(samfiles, mapq):
 		bedfile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
 		out_bedfiles.append(bedfile)
 			
-		cmd_1 = "cat {} | samtools view -q {} -Suo - - | samtools sort - {}".format(samfile, mapq, bamfile_sort)
+		cmd_1 = "cat {} | samtools view {} -Su - -o - | samtools sort - {}".format(samfile, flags, bamfile_sort)
 		cmd_2 = "bamToBed -i {} > {}".format(bamfile_sort + '.bam', bedfile)
 		if cfg.verbose: log(cmd_1)
 		os.system(cmd_1)
