@@ -555,16 +555,23 @@ def cleanBedFile(inBed):
 	return sortedBed
 
 def makeBedGraph(cleanBed,sizesFile):
-	# Usage: From a bedFile, generate a bedGraph and bigWig.
+	# Usage: From a bedFile, generate a plus and minus and total bedGraph and bigWig.
 	# Input: BedFile.
 	# Output: BedGraph file.
-	outname = cleanBed.replace('.bed','.bedgraph')
-	outname2 = cleanBed.replace('.bed','.bw')
-	cmd1 = "bedtools genomecov -bg -split -i {} -g {} > {}".format(cleanBed, sizesFile, outname)
-	cmd2 = cfg.home + "/bin/bedGraphToBigWig {} {} {}".format(outname, sizesFile, outname2)
-	os.system(cmd1)
-	os.system(cmd2)
-	return outname
+	for strand in ["", "+", "-"]:
+		word = ""
+		if strand == "+": word = "_plus"
+		elif strand == "-": word = "_minus"
+		outname = cleanBed.replace('.bed', '{}.bedgraph'.format(word))
+		outname2 = cleanBed.replace('.bed', '{}.bw'.format(word))
+		if strand == "":
+			cmd1 = "bedtools genomecov -bg -split -i {} -g {} > {}".format(cleanBed, sizesFile, outname)
+		else:
+			cmd1 = "bedtools genomecov -bg -split -i {} -g {} -strand {} > {}".format(cleanBed, sizesFile, strand, outname)
+		cmd2 = cfg.home + "/bin/bedGraphToBigWig {} {} {}".format(outname, sizesFile, outname2)
+		os.system(cmd1)
+		os.system(cmd2)
+	return cleanBed.replace('.bed', '.bedgraph')
 		
 def makeClusterCenter(windowsFile):
 	# Usage: Generate a file of cluster centers.
