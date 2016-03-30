@@ -121,8 +121,15 @@ def run_mapping(processed_reads, repeat_index, retro_index, trna_index, star_ind
 		os.system("mv {} {}".format(genome_star_prefix + "_retroAligned.out.sam", retro_mapped))
 		os.system("mv {} {}".format(genome_star_prefix + "_retroUnmapped.out.mate1", retro_unmapped))
 		
+		# getting minus mapped strands for retroviral
+		cmd = "samtools view -f 16 -Sb {} -o {}".format(retro_mapped, genome_star_prefix + "_retroAligned_minus.bam")
+		os.system(cmd)
+		retro_minus = genome_star_prefix + "_retroAligned_minus.fastq"
+		cmd2 = "bedtools bamtofastq -i {} -fq {}".format(genome_star_prefix + "_retroAligned_minus.bam", retro_minus)
+		os.system(cmd2)
+		
 		log("Mapping {} to tRNA".format(infastq))
-		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(trna_index, retro_unmapped, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
+		cmd = "bowtie2 -p 8 -x {} {},{} --un {} -S {} > {} 2>&1".format(trna_index, retro_unmapped, retro_minus, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
 		
@@ -146,7 +153,7 @@ def run_samtools(samfiles, flags=""):
 		bamfile_sort = samfile.replace('.sam','_sorted') 
 		bedfile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
 		out_bedfiles.append(bedfile)
-			
+				
 		cmd_1 = "cat {} | samtools view {} -Su - -o - | samtools sort - {}".format(samfile, flags, bamfile_sort)
 		cmd_2 = "bamToBed -i {} > {}".format(bamfile_sort + '.bam', bedfile)
 		if cfg.verbose: log(cmd_1)
