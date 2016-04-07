@@ -280,13 +280,13 @@ def main():
 	# pre-masking, pre-CLIPper/gene annotation bedgraph
 	cleanBed = cleanBedFile(negAndPosMerged)
 	bedGraphCLIPout = makeBedGraph(negAndPosMerged,genomeFile)
-	CLIPPERlowFDRcenters = getBedCenterPoints(negAndPosMerged, expand)
+	CLIPPERlowFDRcenters = getBedCenterPoints(negAndPosMerged, expand, namecol=3)  # unannotated so there is no name column
 	allLowFDRCentersBedGraph = makeBedGraph(CLIPPERlowFDRcenters, genomeFile)
 	
 	# post-masking, post-CLIPper/gene annotation bedgraph
 	cleanBed = cleanBedFile(CLIPPERlowFDR)
 	bedGraphCLIPout = makeBedGraph(cleanBed,genomeFile)
-	CLIPPERlowFDRcenters = getBedCenterPoints(CLIPPERlowFDR, expand)
+	CLIPPERlowFDRcenters = getBedCenterPoints(CLIPPERlowFDR, expand, namecol=9) # annotated so column 9 is the name of the gene
 	allLowFDRCentersBedGraph = makeBedGraph(CLIPPERlowFDRcenters, genomeFile)	
 	
 	# 4. Partition reads by gene type
@@ -460,3 +460,5 @@ def main():
 
 if __name__ == "__init__":
 	main()
+
+	

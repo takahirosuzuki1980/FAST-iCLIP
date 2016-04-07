@@ -533,16 +533,17 @@ def modCLIPPERout(CLIPPERin, CLIPPERout):
 	
 	return (CLIPPERlowFDR, CLIPperReadsPerCluster, CLIPperGeneList, CLIPperOutBed)
 
-def getBedCenterPoints(inBed, expand):
+	
+def getBedCenterPoints(inBed, expand, namecol):
 	# Usage: Obtain center coordinates of bedFile.
-	# Input: BedFile.
+	# Input: BedFile.	
 	# Output: Center coordinates returned.
-	outBed = inBed.replace('.bed','_centerCoord.bed')	
+	outBed = inBed.replace('.bed','_centerCoord.bed')
 	with open(inBed, 'r') as ifile, open(outBed, 'w') as ofile:
 		reader = csv.reader(ifile, 'textdialect')
 		writer = csv.writer(ofile, 'textdialect')
-		for row in reader:	
-			writer.writerow([row[0], int(row[1]) + expand, int(row[1]) + expand + 1, row[9], row[4], row[5]])
+		for row in reader:
+			writer.writerow([row[0], int(row[1]) + expand, int(row[1]) + expand + 1, row[namecol], row[4], row[5]])
 	return outBed
 
 def cleanBedFile(inBed):
@@ -1352,7 +1353,7 @@ def clean_up():
 	
 	os.system("mkdir bedfiles")
 	os.system("mv *.mergedRT.bed bedfiles")
-	os.system("mv *.bw *.bedGraph *_cleaned_sorted.bed *_centerCoord.bed bedfiles")
+	os.system("mv *.bw *.bedgraph *_cleaned_sorted.bed *_centerCoord.bed bedfiles")
 	if cfg.run_clipper:
 		os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads* rawdata_and_stats")
 		os.system("mv *.mergedRT_CLIP_clusters.bed rawdata_and_stats")
