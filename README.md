@@ -80,18 +80,19 @@ Save the file, then run `source ~/.bash_profile`.
 Dependencies
 ------------
 
-1. Python 2.7: https://www.python.org/download/releases/2.7/
-2. iPython: http://ipython.org/install.html (optional)
-3. iPython notebook: http://ipython.org/notebook (optional)
-4. Matplotlib for Python (plotting): http://matplotlib.org/
-5. Pandas for Python (data): http://pandas.pydata.org/
-6. Bowtie2: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
-7. STAR: https://github.com/alexdobin/STAR
-8. bedtools: http://bedtools.readthedocs.org/en/latest/
-9. CLIPper: https://github.com/YeoLab/clipper/wiki/CLIPper-Home (now optional)
-10. FASTX-Tookit: http://hannonlab.cshl.edu/fastx_toolkit/
-11. Matplotlib-venn for Python: https://pypi.python.org/pypi/matplotlib-venn
-12. iCLIPro: http://www.biolab.si/iCLIPro/doc/
+The version numbers listed have been tested successfully. There are known difficulties if you choose to run updated versions of some of these dependencies (e.g. CLIPper).
+
+- Python 2.7: https://www.python.org/download/releases/2.7/
+- iPython 4.0: http://ipython.org/install.html (optional)
+- matplotlib 1.5: http://matplotlib.org/
+- Pandas 0.18.1: http://pandas.pydata.org/
+- Bowtie 2.1: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
+- STAR 2.4.0: https://github.com/alexdobin/STAR
+- bedtools 2.25.0: http://bedtools.readthedocs.org/en/latest/
+- CLIPper 0.2.0: https://github.com/YeoLab/clipper/wiki/CLIPper-Home (now optional) (Note: FAST-iCLIP does not work with versions of CLIPper > 0.2.0)
+- FASTX-Tookit 0.0.13: http://hannonlab.cshl.edu/fastx_toolkit/
+- matplotlib-venn 0.11.4: https://pypi.python.org/pypi/matplotlib-venn
+- iCLIPro 0.1.1: http://www.biolab.si/iCLIPro/doc/
 
 Input
 -----
