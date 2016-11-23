@@ -38,7 +38,7 @@ parser.add_argument('--clipper', action='store_true', help="also run CLIPper on 
 parser.add_argument('-s', metavar="STAR_INDEX", help="Path to STAR index for your organism", required=True)
 parser.add_argument('-n', metavar='NAME', help="Name of output directory", required=True)
 parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output directory will be made", required=True)
-parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 14.", default=14)
+parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 18.", default=18)
 parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the end of each read. Default is AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.", default='AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG')
 parser.add_argument('-tr', metavar='REPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
 parser.add_argument('-tn', metavar='NONREPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
@@ -299,14 +299,14 @@ def main():
 	# - protein coding
 	geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
 	proteinCodingReads = cfg.outfilepath + 'clipGenes_proteinCoding_LowFDRreads.bed'
-	proteinCodingReads_centered = getBedCenterPoints(proteinCodingReads, expand)
+	proteinCodingReads_centered = getBedCenterPoints(proteinCodingReads, expand, namecol=9)
 	geneCounts_pc = get_gene_counts(proteinCodingReads_centered) 
 	cfg.outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
 	geneCounts_pc.to_csv(cfg.outfilepathToSave)
 	
 	# - lncRNA
 	lincRNAReads = cfg.outfilepath + 'clipGenes_lincRNA_LowFDRreads.bed'
-	lincRNAReads_centered = getBedCenterPoints(lincRNAReads, expand)
+	lincRNAReads_centered = getBedCenterPoints(lincRNAReads, expand, namecol=9)
 	if os.stat(lincRNAReads_centered).st_size > 0:
 		geneCounts_linc = get_gene_counts(lincRNAReads_centered)
 		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_lincRNA'
