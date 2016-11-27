@@ -36,11 +36,13 @@ group.add_argument('--hg19', action='store_true', help="required if your CLIP is
 group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
 parser.add_argument('--clipper', action='store_true', help="also run CLIPper on data")
 parser.add_argument('-s', metavar="STAR_INDEX", help="Path to STAR index for your organism", required=True)
+parser.add_argument('-vm', metavar="VIRAL_INDICES", help="Names of viruses to map to, separated by commas with no spaces. These names must be prefixes of bowtie indexes in docs/viral. Example: -vm DV,ZV,HCV_JFH1")
 parser.add_argument('-n', metavar='NAME', help="Name of output directory", required=True)
 parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output directory will be made", required=True)
 parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 18.", default=18)
 parser.add_argument('-a', metavar='ADAPTER', help="3' adapter to trim from the end of each read. Default is AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.", default='AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG')
 parser.add_argument('-tr', metavar='REPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
+parser.add_argument('-tv', metavar='VIRAL_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to viral RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
 parser.add_argument('-tn', metavar='NONREPEAT_THRESHOLD_RULE', type=str, help="m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)")
 parser.add_argument('-sr', metavar='STAR_RATIO', type=float, help="Maximum mismatches per base allowed for STAR genome mapping (corresponds to outFilterMismatchNoverLmax). Default is 0.08 (2 mismatches per 25 mapped bases).", default=0.08)
 parser.add_argument('-bm', metavar='BOWTIE_MAPQ', type=int, help="Minimum MAPQ (Bowtie alignment to repeat/tRNA/retroviral indexes) score allowed. Default is 42.", default=42)
@@ -78,6 +80,16 @@ if not glob.glob(star_index):
 	print "Error: STAR index at " + star_index + " not accessible. Exiting."
 	exit()
 	
+# viruses
+viruses = []
+if args.vm:
+	viruses = args.vm.split(',')
+	for v in viruses:
+		viral_pref = cfg.home + "/docs/viral/{}".format(v)
+		if not glob.glob(viral_pref + ".*"):
+			print "Error: Viral index with prefix {} not accessible. Exiting.".format(viral_pref)
+			exit()
+
 # Create log and start pipeline
 cfg.logFile=cfg.outfilepath + "runLog"
 cfg.logOpen=open(cfg.logFile, 'w')
@@ -120,6 +132,18 @@ else:
 		print "Repeat threshold rule must be in form m,n where m,n are integers."
 		exit()
 	minpass_rep = min(minpass_rep, nsamp) 
+
+if not args.tv:
+	if nsamp == 1: threshold_viral = 4
+	elif nsamp == 2: threshold_viral = 3
+	else: threshold_viral = 2
+	minpass_viral = nsamp
+else:
+	try: [minpass_viral, threshold_viral] = [int(x) for x in args.tv.split(',')]
+	except: 
+		print "Viral threshold rule must be in form m,n where m,n are integers."
+		exit()
+	minpass_viral = min(minpass_viral, nsamp) 
 
 if org == 'human':
 	repeat_index=cfg.home + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
@@ -211,16 +235,42 @@ def main():
 	else: processed_reads = reads
 
 	log("\nRun mapping to indexes.")
-	(rep_sam, retro_sam, trna_sam, gen_sam) = run_mapping(processed_reads, repeat_index, retro_index, tRNAindex, star_index, star_ratio)
+	(viral_sam, rep_sam, retro_sam, trna_sam, gen_sam) = run_mapping(processed_reads, viruses, repeat_index, retro_index, tRNAindex, star_index, star_ratio)
 
 	log("\nRun samtools.")
+	viral_bed = run_samtools(viral_sam, "-q {}".format(mapq))
 	rep_bed = run_samtools(rep_sam, "-q {}".format(mapq))
 	retro_bed = run_samtools(retro_sam)  # do more with this later, so no flags yet
 	trna_bed = run_samtools(trna_sam, "-q {}".format(mapq))
 	gen_bed = run_samtools(gen_sam, "-q 255") # we're using STAR here so 255 signifies unique mapping
 
-	# 2. Process repeat RT stops
+	# 2.1 Process viral RT stops
+	print viral_sam, viral_bed, 
+	if viruses:
+		log("\nViral RT stop isolation.")
+		virus_to_beds = defaultdict(lambda: [])
+		for v in viruses:
+			for bed in viral_bed:
+				if 'mappedTo{}_'.format(v) in bed: virus_to_beds[v].append(bed)
+		
+	for v in virus_to_beds:
+		viral_bedfiles = virus_to_beds[v]
+		readsByStrand_v = separateStrands(viral_bedfiles)
+		negativeRTstop_v = isolate5prime(modifyNegativeStrand(readsByStrand_v[0])) 
+		positiveRTstop_v = isolate5prime(readsByStrand_v[1]) 
+
+		posMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_positivereads.mergedRT'.format(v)
+		negMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_negativereads.mergedRT'.format(v)
+		negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
 	
+		mergeRT(positiveRTstop_v, posMerged, posMerged + '_stats', minpass_viral, threshold_viral, expand, '+')
+		mergeRT(negativeRTstop_v, negMerged, negMerged + '_stats', minpass_viral, threshold_viral, expand, '-')
+		fileCat(negAndPosMerged, [posMerged, negMerged])
+		fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
+
+	exit()
+	
+	# 2.2 Process repeat RT stops
 	log("\nRun repeat and blacklist region masker.")
 	
 	log("\nRepeat RT stop isolation.")
@@ -238,6 +288,7 @@ def main():
 	fileCat(negAndPosMerged, [posMerged, negMerged])
 	fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
+	# 2.3 Process nonrepeat RT stops
 	log("Nonrepeat RT stop isolation.")
 	gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
 	readsByStrand = separateStrands(gen_norepeat_bed)

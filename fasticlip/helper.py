@@ -73,22 +73,27 @@ def trim(reads, adapter3p, l, n):
 ### MAPPING  ###
 ################
 
-def run_mapping(processed_reads, repeat_index, retro_index, trna_index, star_index, star_ratio):
+def run_mapping(processed_reads, viruses, repeat_index, retro_index, trna_index, star_index, star_ratio):
 	# Usage: Read mapping.
 	# Input: Fastq files of replicate trimmed read files.
 	# Output: Path to samfile for each read.
 
+	viral_sam = []
 	rep_sam = []
 	retro_sam = []
 	trna_sam = []
 	genome_sam = []
 	for infastq in processed_reads:
+	
+		# NAMES	
+		for v in viruses:
+			v_mapped = infastq.replace(".fastq", "_mappedTo{}.sam".format(v))
+			viral_sam.append(v_mapped)
+			
 		rep_mapped = infastq.replace(".fastq", "_mappedToRepeat.sam")
-		rep_mapped = cfg.outfilepath + os.path.basename(rep_mapped)
-		rep_sam.append(rep_mapped)
-
 		rep_unmapped = infastq.replace(".fastq", "_notMappedToRepeat.fastq")
-		rep_unmapped = cfg.outfilepath + os.path.basename(rep_unmapped)
+
+		rep_sam.append(rep_mapped)
 		retro_mapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_mappedToRetro.sam")
 		retro_sam.append(retro_mapped)
 		
@@ -101,11 +106,36 @@ def run_mapping(processed_reads, repeat_index, retro_index, trna_index, star_ind
 		genome_star_output = trna_unmapped.replace("_notMappedToTrna.fastq", "Aligned.out.sam")
 		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", "_mappedToGenome.sam")
 		genome_sam.append(genome_mapped)
-
+		
+		# MAPPING
+		
 		if glob.glob(genome_mapped):
 			log("Bowtie/STAR already done.")
 			continue
-			
+					
+		if viruses:
+			log("Mapping {} to viruses".format(infastq))
+
+			for v in viruses:	
+				print v
+				viral_index = cfg.home + "/docs/viral/{}".format(v)
+				if 'notMappedToViral' not in infastq:  # first virus mapping
+					v_mapped = infastq.replace(".fastq", "_mappedTo{}.sam".format(v))
+					v_unmapped = infastq.replace(".fastq", "_notMappedToViral_new.fastq".format(v))
+				else:  # all subsequent virus mappings
+					v_mapped = infastq.replace("_notMappedToViral.fastq", "_mappedTo{}.sam".format(v))
+					v_unmapped = infastq.replace("_notMappedToViral.fastq", "_notMappedToViral_new.fastq")				
+
+				cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(viral_index, infastq, v_unmapped, v_mapped, v_mapped + '_stats.txt')
+				if cfg.verbose: log(cmd)
+				os.system(cmd)
+		
+				infastq = v_unmapped.replace("_notMappedToViral_new.fastq", "_notMappedToViral.fastq")
+				os.system("mv {} {}".format(v_unmapped, infastq))
+				
+			rep_mapped = infastq.replace("_notMappedToViral.fastq", "_mappedToRepeat.sam")
+			rep_unmapped = infastq.replace("_notMappedToViral.fastq", "_notMappedToRepeat.fastq")
+
 		log("Mapping {} to repeat".format(infastq))
 		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(repeat_index, infastq, rep_unmapped, rep_mapped, rep_mapped + '_stats.txt')
 		if cfg.verbose: log(cmd)
@@ -140,7 +170,7 @@ def run_mapping(processed_reads, repeat_index, retro_index, trna_index, star_ind
 		os.system(cmd)
 		os.system("mv {} {}".format(genome_star_output, genome_mapped))
 		
-	return rep_sam, retro_sam, trna_sam, genome_sam
+	return viral_sam, rep_sam, retro_sam, trna_sam, genome_sam
 
 def run_samtools(samfiles, flags=""):
 	# Usage: Samfile processing (also takes unique mappers only)
@@ -374,7 +404,8 @@ def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand,
 	# Input: Files with RT stops for each replicate, outfile, threshold, strand, and bases to expand around RT stop.
 	# Output: None. Writes merged RT stop file.
 	
-	cts = [RTcounts(fn) for fn in RTstopFiles]
+	cts = [RTcounts(fn) for fn in RTstopFiles if os.stat(fn).st_size > 0]
+	if not cts: return
 	m = pd.concat(cts, axis=1, join='inner')
 	numpass = m.apply(lambda x: countPassed(x, threshold), axis=1)
 	m = m[numpass >= minpass]
