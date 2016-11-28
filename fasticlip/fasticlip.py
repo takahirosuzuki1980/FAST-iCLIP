@@ -267,8 +267,6 @@ def main():
 		mergeRT(negativeRTstop_v, negMerged, negMerged + '_stats', minpass_viral, threshold_viral, expand, '-')
 		fileCat(negAndPosMerged, [posMerged, negMerged])
 		fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
-
-	exit()
 	
 	# 2.2 Process repeat RT stops
 	log("\nRun repeat and blacklist region masker.")
