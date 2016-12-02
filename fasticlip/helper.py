@@ -405,7 +405,12 @@ def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand,
 	# Output: None. Writes merged RT stop file.
 	
 	cts = [RTcounts(fn) for fn in RTstopFiles if os.stat(fn).st_size > 0]
-	if not cts: return
+	if not cts: 
+		f = open(outfilename, 'w')
+		fs = open(statsfilename, 'w')
+		f.close()
+		fs.close()
+		return
 	m = pd.concat(cts, axis=1, join='inner')
 	numpass = m.apply(lambda x: countPassed(x, threshold), axis=1)
 	m = m[numpass >= minpass]

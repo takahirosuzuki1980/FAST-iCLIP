@@ -245,7 +245,6 @@ def main():
 	gen_bed = run_samtools(gen_sam, "-q 255") # we're using STAR here so 255 signifies unique mapping
 
 	# 2.1 Process viral RT stops
-	print viral_sam, viral_bed, 
 	if viruses:
 		log("\nViral RT stop isolation.")
 		virus_to_beds = defaultdict(lambda: [])
