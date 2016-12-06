@@ -878,7 +878,7 @@ def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 	plt.title('Read counts',fontsize=5)
 	
 	if cfg.verbose: log(str(fileNames))
-	if cfg.verbose: log(counts)
+	if cfg.verbose: log(str(counts))
 	readDF=pd.DataFrame()
 	readDF['File_name'] = fileNames
 	readDF['Reads_per_file'] = counts
