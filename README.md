@@ -46,7 +46,9 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   --trimmed       |      flag if files are already trimmed
   -f N          |    Number of bases to trim from 5' end of each read. Default is 14.
   -a ADAPTER     |   3' adapter to trim from the end of each read. Default is A            GATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.
+  -vm VIRAL_INDICES      |      Names of viruses to map to, separated by commas with no spaces. These names must be prefixes of bowtie indexes in docs/viral. Example: -vm DV,ZV,HCV_JFH1
   -tr REPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
+  -tv VIRAL_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to viral RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
   -tn NONREPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
   -sr STAR_RATIO   |     Maximum mismatches per base allowed for STAR genome mapping (corresponds to outFilterMismatchNoverLmax). Default is 0.08 (2 mismatches per 25 mapped bases).
   -bm BOWTIE_MAPQ   |    Minimum MAPQ (Bowtie alignment to repeat/tRNA/retroviral indexes) score allowed. Default is 42.  
