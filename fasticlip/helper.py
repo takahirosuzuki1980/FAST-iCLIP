@@ -606,7 +606,9 @@ def makeBedGraph(cleanBed,sizesFile):
 		else:
 			cmd1 = "bedtools genomecov -bg -split -i {} -g {} -strand {} > {}".format(cleanBed, sizesFile, strand, outname)
 		cmd2 = cfg.home + "/bin/bedGraphToBigWig {} {} {}".format(outname, sizesFile, outname2)
+		if cfg.verbose: log(cmd1)
 		os.system(cmd1)
+		if cfg.verbose: log(cmd2)
 		os.system(cmd2)
 	return cleanBed.replace('.bed', '.bedgraph')
 		
