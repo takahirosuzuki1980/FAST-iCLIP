@@ -44,7 +44,7 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
   flag | description
   ------------------|------------------------------------------------
   --trimmed       |      flag if files are already trimmed
-  -f N          |    Number of bases to trim from 5' end of each read. Default is 14.
+  -f N          |    Number of bases to trim from 5' end of each read. Default is 18.
   -a ADAPTER     |   3' adapter to trim from the end of each read. Default is A            GATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCGATCTCGTATGCCGTCTTCTGCTTG.
   -vm VIRAL_INDICES      |      Names of viruses to map to, separated by commas with no spaces. These names must be prefixes of bowtie indexes in docs/viral. Example: -vm DV,ZV,HCV_JFH1
   -tr REPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
