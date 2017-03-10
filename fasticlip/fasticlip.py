@@ -252,21 +252,21 @@ def main():
 			for bed in viral_bed:
 				if 'mappedTo{}_'.format(v) in bed: virus_to_beds[v].append(bed)
 		
-	for v in virus_to_beds:
-		viral_bedfiles = virus_to_beds[v]
-		readsByStrand_v = separateStrands(viral_bedfiles)
-		negativeRTstop_v = isolate5prime(modifyNegativeStrand(readsByStrand_v[0])) 
-		positiveRTstop_v = isolate5prime(readsByStrand_v[1]) 
+		for v in virus_to_beds:
+			viral_bedfiles = virus_to_beds[v]
+			readsByStrand_v = separateStrands(viral_bedfiles)
+			negativeRTstop_v = isolate5prime(modifyNegativeStrand(readsByStrand_v[0])) 
+			positiveRTstop_v = isolate5prime(readsByStrand_v[1]) 
 
-		posMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_positivereads.mergedRT'.format(v)
-		negMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_negativereads.mergedRT'.format(v)
-		negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
-	
-		mergeRT(positiveRTstop_v, posMerged, posMerged + '_stats', minpass_viral, threshold_viral, expand, '+')
-		mergeRT(negativeRTstop_v, negMerged, negMerged + '_stats', minpass_viral, threshold_viral, expand, '-')
-		fileCat(negAndPosMerged, [posMerged, negMerged])
-		fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
-	
+			posMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_positivereads.mergedRT'.format(v)
+			negMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_negativereads.mergedRT'.format(v)
+			negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
+
+			mergeRT(positiveRTstop_v, posMerged, posMerged + '_stats', minpass_viral, threshold_viral, expand, '+')
+			mergeRT(negativeRTstop_v, negMerged, negMerged + '_stats', minpass_viral, threshold_viral, expand, '-')
+			fileCat(negAndPosMerged, [posMerged, negMerged])
+			fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
+
 	# 2.2 Process repeat RT stops
 	log("\nRun repeat and blacklist region masker.")
 	
