@@ -8,17 +8,19 @@ from collections import defaultdict
 from operator import itemgetter
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import cm
 from optparse import OptionParser
 mpl.rcParams['savefig.dpi'] = 2 * mpl.rcParams['savefig.dpi']
 mpl.rcParams['path.simplify'] = True
 csv.register_dialect("textdialect",delimiter='\t')
+a=[]
+b=[]
 
 ################
 ### TRIMMING ###
 ################
 
 def log(str):
-	print str
 	cfg.logOpen.write(str + '\n')
 	
 def remove_dup(reads, q, p):
@@ -73,20 +75,20 @@ def trim(reads, adapter3p, l, n):
 ### MAPPING  ###
 ################
 
-def run_mapping(processed_reads, viruses, repeat_index, retro_index, trna_index, star_index, star_ratio):
+def run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, trna_index, star_index, star_ratio):
 	# Usage: Read mapping.
 	# Input: Fastq files of replicate trimmed read files.
 	# Output: Path to samfile for each read.
 
 	viral_sam = []
 	rep_sam = []
-	retro_sam = []
+	endoVirus_sam = []
 	trna_sam = []
 	genome_sam = []
 	for infastq in processed_reads:
 	
 		# NAMES	
-		for v in viruses:
+		for v in exoViruses:
 			v_mapped = infastq.replace(".fastq", "_mappedTo{}.sam".format(v))
 			viral_sam.append(v_mapped)
 			
@@ -94,14 +96,14 @@ def run_mapping(processed_reads, viruses, repeat_index, retro_index, trna_index,
 		rep_unmapped = infastq.replace(".fastq", "_notMappedToRepeat.fastq")
 
 		rep_sam.append(rep_mapped)
-		retro_mapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_mappedToRetro.sam")
-		retro_sam.append(retro_mapped)
+		endoVirus_mapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_mappedToendoVirus.sam")
+		endoVirus_sam.append(endoVirus_mapped)
 		
-		retro_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToRetro.fastq")
-		trna_mapped = retro_unmapped.replace("_notMappedToRetro.fastq", "_mappedToTrna.sam")
+		endoVirus_unmapped = rep_unmapped.replace("_notMappedToRepeat.fastq", "_notMappedToendoVirus.fastq")
+		trna_mapped = endoVirus_unmapped.replace("_notMappedToendoVirus.fastq", "_mappedToTrna.sam")
 		trna_sam.append(trna_mapped)
 
-		trna_unmapped = retro_unmapped.replace("_notMappedToRetro.fastq", "_notMappedToTrna.fastq")
+		trna_unmapped = endoVirus_unmapped.replace("_notMappedToendoVirus.fastq", "_notMappedToTrna.fastq")
 		genome_star_prefix = trna_unmapped.replace("_notMappedToTrna.fastq", "")
 		genome_star_output = trna_unmapped.replace("_notMappedToTrna.fastq", "Aligned.out.sam")
 		genome_mapped = trna_unmapped.replace("_notMappedToTrna.fastq", "_mappedToGenome.sam")
@@ -113,16 +115,15 @@ def run_mapping(processed_reads, viruses, repeat_index, retro_index, trna_index,
 			log("Bowtie/STAR already done.")
 			continue
 					
-		if viruses:
-			log("Mapping {} to viruses".format(infastq))
+		if exoViruses:
+			log("Mapping {} to exoViruses".format(infastq))
 
-			for v in viruses:	
-				print v
+			for v in exoViruses:	
 				viral_index = cfg.home + "/docs/viral/{}".format(v)
-				if 'notMappedToViral' not in infastq:  # first virus mapping
+				if 'notMappedToViral' not in infastq:  # first exoVirus mapping
 					v_mapped = infastq.replace(".fastq", "_mappedTo{}.sam".format(v))
 					v_unmapped = infastq.replace(".fastq", "_notMappedToViral_new.fastq".format(v))
-				else:  # all subsequent virus mappings
+				else:  # all subsequent exoVirus mappings
 					v_mapped = infastq.replace("_notMappedToViral.fastq", "_mappedTo{}.sam".format(v))
 					v_unmapped = infastq.replace("_notMappedToViral.fastq", "_notMappedToViral_new.fastq")				
 
@@ -141,25 +142,25 @@ def run_mapping(processed_reads, viruses, repeat_index, retro_index, trna_index,
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
 		
-		log("Mapping {} to retroviral".format(infastq))
-		#cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(retro_index, rep_unmapped, retro_unmapped, retro_mapped, retro_mapped + '_stats.txt')
-		#print genome_star_prefix + "_retro", genome_star_prefix + "_retroAligned.out.sam"
-		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {} --outReadsUnmapped Fastx".format(retro_index, rep_unmapped, genome_star_prefix + "_retro", star_ratio)
+		log("Mapping {} to endovirus".format(infastq))
+		#cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(endoVirus_index, rep_unmapped, endoVirus_unmapped, endoVirus_mapped, endoVirus_mapped + '_stats.txt')
+		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {} --outReadsUnmapped Fastx".format(endoVirus_index, rep_unmapped, genome_star_prefix + "_endoVirus", star_ratio)
 
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
-		os.system("mv {} {}".format(genome_star_prefix + "_retroAligned.out.sam", retro_mapped))
-		os.system("mv {} {}".format(genome_star_prefix + "_retroUnmapped.out.mate1", retro_unmapped))
+		os.system("mv {} {}".format(genome_star_prefix + "_endoVirusAligned.out.sam", endoVirus_mapped))
+		os.system("mv {} {}".format(genome_star_prefix + "_endoVirusUnmapped.out.mate1", endoVirus_unmapped))
 		
-		# getting minus mapped strands for retroviral
-		cmd = "samtools view -f 16 -Sb {} -o {}".format(retro_mapped, genome_star_prefix + "_retroAligned_minus.bam")
+		# getting minus mapped strands for endovirus
+		"""cmd = "samtools view -f 16 -Sb {} -o {}".format(endoVirus_mapped, genome_star_prefix + "_endoVirusAligned_minus.bam")
 		os.system(cmd)
-		retro_minus = genome_star_prefix + "_retroAligned_minus.fastq"
-		cmd2 = "bedtools bamtofastq -i {} -fq {}".format(genome_star_prefix + "_retroAligned_minus.bam", retro_minus)
-		os.system(cmd2)
+		endoVirus_minus = genome_star_prefix + "_endoVirusAligned_minus.fastq"
+		cmd2 = "bedtools bamtofastq -i {} -fq {}".format(genome_star_prefix + "_endoVirusAligned_minus.bam", endoVirus_minus)
+		os.system(cmd2)"""
 		
 		log("Mapping {} to tRNA".format(infastq))
-		cmd = "bowtie2 -p 8 -x {} {},{} --un {} -S {} > {} 2>&1".format(trna_index, retro_unmapped, retro_minus, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
+		#cmd = "bowtie2 -p 8 -x {} {},{} --un {} -S {} > {} 2>&1".format(trna_index, endoVirus_unmapped, endoVirus_minus, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
+		cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(trna_index, endoVirus_unmapped, trna_unmapped, trna_mapped, trna_mapped + '_stats.txt')
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
 		
@@ -170,7 +171,7 @@ def run_mapping(processed_reads, viruses, repeat_index, retro_index, trna_index,
 		os.system(cmd)
 		os.system("mv {} {}".format(genome_star_output, genome_mapped))
 		
-	return viral_sam, rep_sam, retro_sam, trna_sam, genome_sam
+	return viral_sam, rep_sam, endoVirus_sam, trna_sam, genome_sam
 
 def run_samtools(samfiles, flags=""):
 	# Usage: Samfile processing (also takes unique mappers only)
@@ -181,10 +182,10 @@ def run_samtools(samfiles, flags=""):
 	out_bedfiles = []
 	for samfile in samfiles:
 		bamfile_sort = samfile.replace('.sam','_sorted') 
-		bedfile = bamfile_sort.replace('_sorted', '_withDupes.bed') 
+		bedfile = bamfile_sort.replace('_sorted', '.bed') 
 		out_bedfiles.append(bedfile)
 				
-		cmd_1 = "cat {} | samtools view {} -Su - -o - | samtools sort - {}".format(samfile, flags, bamfile_sort)
+		cmd_1 = "cat {} | samtools view {} -Su -F 0x4 - -o - | samtools sort - {}".format(samfile, flags, bamfile_sort)
 		cmd_2 = "bamToBed -i {} > {}".format(bamfile_sort + '.bam', bedfile)
 		if cfg.verbose: log(cmd_1)
 		os.system(cmd_1)
@@ -279,55 +280,32 @@ def trna_isotype_count(trna_samfiles, minpass, threshold):
 ### PROCESSING ###
 ##################
 
-def remove_blacklist_retro(gen_bed, blacklistregions, repeatregions):
+def remove_RepeatMaskerRegions(gen_bed, blacklistregions, repeatregions):
 	# Usage: Remove repeat regions from bedfile following mapping.
-	# Input: .bed file after mapping (duplicates removed by samtools) and blastlist regions removed.
+	# Input: .bed file after mapping (duplicates removed by samtools).
 	# Output: Bedfile with repeat regions removed.
 
 	masked=[]
 	in_no_repeat_RTstop_collapsed=[]
 	for bedIn in gen_bed:
-		no_blacklist = bedIn.replace('.bed', '_noBlacklist.bed')
 		no_repeat = bedIn.replace('.bed', '_noRepeat.bed')
 		repeat = bedIn.replace('.bed', '_repeat.bed')
 			
-		cmd_1 = "bedtools intersect -a {} -b {} -wa -v -sorted > {}".format(bedIn, blacklistregions, no_blacklist)
-		cmd_2 = "bedtools intersect -a {} -b {} -wa -v -sorted -s > {}".format(no_blacklist, repeatregions, no_repeat)
-		cmd_3 = "bedtools intersect -a {} -b {} -wa -wb -sorted -s > {}".format(no_blacklist, repeatregions, repeat)
+		cmd_2 = "bedtools intersect -a {} -b {} -wa -v -sorted -s > {}".format(bedIn, repeatregions, no_repeat)
+		cmd_3 = "bedtools intersect -a {} -b {} -wa -wb -sorted -s > {}".format(bedIn, repeatregions, repeat)
 
-		if cfg.verbose: log(cmd_1)
-		os.system(cmd_1)
 		if cfg.verbose: log(cmd_2)
 		os.system(cmd_2)
 		if cfg.verbose: log(cmd_3)
 		os.system(cmd_3)
 		masked.append(no_repeat)
 		
-		# #For some extra testing & running threshold vs correlation plot
-		# #Get 5' ends (3' for neg strand) and count table of collapsed RT stop positions
-		# no_repeat_RTstop = bedIn.replace('.bed', '_noRepeat_fiveprime.bed')		
-		# no_repeat_RTstop_collapsed = bedIn.replace('.bed', '_noRepeat_fiveprime_collapsed.txt')	
-		# in_no_repeat_RTstop_collapsed.append(no_repeat_RTstop_collapsed)
-		# cmd_4 =	"cat {} | awk -F\"\\t\" ' BEGIN {{ OFS=\"\\t\" }} $6==\"+\"{{ print $1, $2, $2+1, $4, $5, $6 }} $6==\"-\" {{ print $1, $3-1, $3, $4, $5, $6 }} ' | cut -f1,2,3,4,5,6 > {} ".format(no_repeat, no_repeat_RTstop)
-		# cmd_5 =	"cat {} | cut -f1,2,6 | awk ' BEGIN {{ OFS=\"\\t\" }} {{ a[$0]++ }} END {{ for(i in a) {{ print i, a[i] }} }} ' > {} ".format(no_repeat_RTstop, no_repeat_RTstop_collapsed)
-		
-		# print cmd_4
-		# os.system(cmd_4)
-		# print cmd_5
-		# os.system(cmd_5)
-	
-	# #Run correlation table with R script
-	# in_no_repeat_RTstop_collapsed = ' '.join(in_no_repeat_RTstop_collapsed)
-	# cmd_6 = "Rscript correlation_filter.R {]".format(in_no_repeat_RTstop_collapsed)
-	# print cmd_6
-	# os.system(cmd_6)
-			
 	return masked
 	
 
 def separateStrands(mappedReads):
 	# Usage: separate positive and negative strands.
-	# Input: Paths to two bed files from Samtools.
+	# Input: Paths to bed file from Samtools.
 	# Output: Paths to bed files isolated by strand.
 	negativeStrand=[]
 	positiveStrand=[]
@@ -360,11 +338,12 @@ def modifyNegativeStrand(negativeStrandReads):
 		with open(negativeRead, 'r') as infile:
 			for line in infile:	
 				chrom,start,end,name,quality,strand=line.strip().split('\t')
-				neg_edit.write('\t'.join((chrom, str(int(end) - 1), str(int(end) + 29), name, quality, strand)) + '\n') # end-1 since it's [start, end)
+				neg_edit.write('\t'.join((chrom, str(int(end)), str(int(end) + 29), name, quality, strand)) + '\n') # end-1 since it's [start, end)
 	return negativeStrandEdit
 
+
 def isolate5prime(strandedReads):
-	# Usage: Isolate only the Chr, 5' position (RT stop), and strand.
+	# Usage: Isolate only the Chr, 5' position (RT stop), and strand. Shifts RT stops to correct positon based on strand. -1 position for (+) strand RT stops and +1 position for (-) strands RT stops.
 	# Input: Bed file paths to strand separated reads.
 	# Output: Paths RT stop files.
 	RTstops=[]
@@ -372,20 +351,28 @@ def isolate5prime(strandedReads):
 		RTstop=reads.replace('.bed','_RTstop.bed')
 		with open(reads, 'r') as infile:
 			RTstops=RTstops+[RTstop]
-			
 			f = open(RTstop, 'w')
 			for line in infile:	
 				chrom,start,end,name,quality,strand=line.strip().split('\t')
-				f.write('\t'.join((chrom,start,strand))+'\n')
+				#f.write('\t'.join((chrom,start,strand))+'\n')
+				#f.write('\t'.join((chrom,str(int(start)-1),strand))+'\n')
+				if strand=="+":
+					f.write('\t'.join((chrom,str(int(start)-1),strand))+'\n')
+				else:
+					f.write('\t'.join((chrom,str(int(start)+1),strand))+'\n')
 	return RTstops
 
-def fileCat(destinationFile,fileList):
-	f = open(destinationFile, "w")
+def fileCat(destinationFile,fileList, sort=False):
+	f = open(destinationFile + "_temp", "w")
 	for tempfile in fileList:
 		readfile = open(tempfile, "r")
 		f.write(readfile.read())
 		readfile.close()
 	f.close()
+	
+	if not sort:
+		os.system("sort -k1,1 -k2,2n {} > {}".format(destinationFile + "_temp", destinationFile))
+		os.system("rm -f {}".format(destinationFile + "_temp"))
 
 def RTcounts(RTfile):
 	posRT_R1=pd.DataFrame(pd.read_table(RTfile,index_col=None,header=None,sep='\t'))
@@ -399,7 +386,7 @@ def countPassed(x, n):
 		if i >= n: ct += 1
 	return ct
 	
-def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand, strand):
+def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, strand):
 	# Usage: Merge RT stops between replicates and keep only those positions that exceed threshold.
 	# Input: Files with RT stops for each replicate, outfile, threshold, strand, and bases to expand around RT stop.
 	# Output: None. Writes merged RT stop file.
@@ -425,22 +412,18 @@ def mergeRT(RTstopFiles, outfilename, statsfilename, minpass, threshold, expand,
 	fs = open(statsfilename, 'w')
 	fsw = csv.writer(fs, 'textdialect')
 	for i in m_filter.index:
-		chrom = i[0]
+		if str(i[0]).find('chr') == -1:
+			chrom = 'chr' + str(i[0]) 
+		else:
+			chrom = i[0]
 		RT = i[1]
 		count = m_filter.loc[i,'sum']
 		mean = str(m_filter.loc[i, 'mean'])
 		stdev = str(m_filter.loc[i, 'stdev'])
-		
-		if RT > expand:
-			read = [chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand]
-			sread = [chrom, str(int(RT)-expand), str(int(RT)+expand), 'CLIPread', '255', strand]
-			sread.extend(m.loc[i])
-			sread.extend([mean, stdev])
-		else:
-			read = [chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand]
-			sread = [chrom,str(int(RT)), str(int(RT)+expand), 'CLIPread', '255', strand]
-			sread.extend(m.loc[i])
-			sread.extend([mean, stdev])
+		read = [chrom, str(int(RT)), str(int(RT)+1), 'CLIPread', '255', strand]
+		sread = [chrom, str(int(RT)), str(int(RT)+1), 'CLIPread', '255', strand]
+		sread.extend(m.loc[i])
+		sread.extend([mean, stdev])
 		fsw.writerow(sread)
 		for _ in range(int(count)):
 			fw.writerow(read)
@@ -464,9 +447,6 @@ def filter_snoRNAs(negAndPosMerged, snoRNAmasker, miRNAmasker):
 	
 	return proteinWithoutmiRNAs
 
-################
-### CLIPPER  ###
-################
 
 def annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed):
 	# Usage: Annotate all reads that match ENSG genes; delete the rest.
@@ -490,87 +470,13 @@ def annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed):
 	os.system("mv {} {}".format(out_reads + '_uniq', out_reads))
 	return out_reads
 	
-def make_gene_list_from_annotation(CLIPPERlowFDR):
-	outfile = CLIPPERlowFDR + '.geneNames'
-	cmd = "cut -f10 {} > {}".format(CLIPPERlowFDR, outfile)
+def make_gene_list_from_annotation(gene_reads):
+	outfile = gene_reads + '.geneNames'
+	cmd = "cut -f10 {} > {}".format(gene_reads, outfile)
 	os.system(cmd)
 	return outfile
 	
-def runCLIPPER(RTclusterfile,genome,genomeFile):
-	# Usege: Process the mergedRT file and pass through CLIPper FDR script.
-	# Input: Merged RT file.
-	# Output: CLIPper input (.bed) file and output file.
-	
-	bamfile_sorted = RTclusterfile.replace('.bed','.srt')  
-	cmd1 = "bedToBam -i {} -g {} | samtools sort - {}".format(RTclusterfile, genomeFile, bamfile_sorted)
-	os.system(cmd1)
-	
-	bamfile_sorted += ".bam"
-	mapStats=bamfile_sorted.replace('.srt.bam','.mapStats.txt') 
-	cmd2 = "samtools flagstat {} > {}".format(bamfile_sorted, mapStats)
-	cmd3 = "samtools index {}".format(bamfile_sorted)
-	os.system(cmd2)
-	os.system(cmd3)
-	
-	CLIPPERout_dup = RTclusterfile.replace('.bed','_CLIP_clusters_dupl') 
-	cmd4 = "clipper --bam {} {} --outfile={} > /dev/null 2>&1".format(bamfile_sorted, genome, CLIPPERout_dup)
-	os.system(cmd4)
-	
-	# added by BD 4/12/15 to merge adjacent clip clusters and remove duplicates
-	CLIPPERout = CLIPPERout_dup.replace('_CLIP_clusters_dupl','_CLIP_clusters') 
-	with open(CLIPPERout_dup,'r') as ifile, open(CLIPPERout,'w') as ofile:
-		reader = csv.reader(ifile, 'textdialect')
-		writer = csv.writer(ofile, 'textdialect')
-		currRow = ['chr1',0,0,0,0,'+']
-		for row in reader:
-			currStart = int(currRow[1])
-			currEnd = int(currRow[2])
-			newStart = int(row[1])
-			newEnd = int(row[2])
-			if currStart==newStart and currEnd==newEnd: continue #duplicates
-			if math.fabs(newStart-currEnd) <= 15 and currRow[5]==row[5]: #overlap and same strand
-				if int(currRow[1]) != 0: #not the first one
-					currRow[2]=newEnd #merge the two adjacent clusters
-			else: #not overlap
-				if int(currRow[1]) != 0:
-					writer.writerow(currRow)
-				currRow = row #cycle continues
-		writer.writerow(currRow) #fencepost
-	
-	return CLIPPERout
-
-def modCLIPPERout(CLIPPERin, CLIPPERout):
-	# Usage: Process the CLIPper output and isolate lowFDR reads based upon CLIPper windows.
-	# Input: .bed file passed into CLIPper and the CLIPper windows file.
-	# Output: Low FDR reads recovered using the CLIPer windows file, genes per cluster, gene list of CLIPper clusters, and CLIPper windows as .bed.
-	
-	CLIPperOutBed = CLIPPERout + '.bed' # CLIPper windows as a bed file
-	CLIPperReadsPerCluster = CLIPPERout + '.readsPerCluster' # Number of reads per CLIPper cluster
-	CLIPperGeneList = CLIPPERout + '.geneNames' # Gene names returned from the CLIPper file
-	CLIPPERlowFDR = CLIPperOutBed.replace('.bed','_lowFDRreads.bed') # Low FDR reads returned filtered through CLIPper windows
-	
-	with open(CLIPPERout,'r') as infile, open(CLIPperOutBed,'w') as f, open(CLIPperReadsPerCluster,'w') as g, open(CLIPperGeneList,'w') as h:
-		for line in infile:	
-			try:
-				# *** Old CLIPper includes a header that cannot be parsed. Handle this. ***
-				# *** Old CLIPper: Ensembl genes are parsed with <name>_<cluster>_<count>. ***
-				chrom,start,end,name,stats,strand,start_2,end_2 = line.strip().split('\t')
-				readPerCluster=name.strip().split('_')[2]
-				geneName=name.strip().split('_')[0].split('.')[0]
-				f.write('\t'.join((chrom,start,end,name,stats,strand))+'\n')
-				g.write((readPerCluster+'\n'))
-				h.write((geneName+'\n'))
-			except:
-				continue
-				
-	# Intersect input reads with the CLIPper windows and report full result for both.
-	cmd = "bedtools intersect -a {} -b {} -wa -wb -s > {}".format(CLIPPERin, CLIPperOutBed, CLIPPERlowFDR)
-	os.system(cmd)
-	
-	return (CLIPPERlowFDR, CLIPperReadsPerCluster, CLIPperGeneList, CLIPperOutBed)
-
-	
-def getBedCenterPoints(inBed, expand, namecol):
+def getBedCenterPoints(inBed, namecol):
 	# Usage: Obtain center coordinates of bedFile.
 	# Input: BedFile.	
 	# Output: Center coordinates returned.
@@ -579,17 +485,17 @@ def getBedCenterPoints(inBed, expand, namecol):
 		reader = csv.reader(ifile, 'textdialect')
 		writer = csv.writer(ofile, 'textdialect')
 		for row in reader:
-			writer.writerow([row[0], int(row[1]) + expand, int(row[1]) + expand + 1, row[namecol], row[4], row[5]])
+			writer.writerow([row[0], int(row[1]), int(row[1]) + 1, row[namecol], row[4], row[5]])
 	return outBed
 
 def cleanBedFile(inBed):
-	# Usage: Sort and recover only first 6 fields from a bed file.
+	# Usage: Recover only first 6 fields from a bed file. Sorting was done in fileCat (BD 01/28/17)
 	# Input: BedFile.
-	# Output: Sorted bedFile with correct number of fields.
-	sortedBed = inBed.replace('.bed','_cleaned_sorted.bed')	
-	cmd = "cut -f1-6 {} | sort -k1,1 -k2,2n > {}".format(inBed, sortedBed)
+	# Output: bedFile with correct number of fields.
+	cleanedBed = inBed.replace('.bed','_cleaned_sorted.bed')	
+	cmd = "cut -f1-6 {} > {}".format(inBed, cleanedBed)
 	os.system(cmd)
-	return sortedBed
+	return cleanedBed
 
 def makeBedGraph(cleanBed,sizesFile):
 	# Usage: From a bedFile, generate a plus and minus and total bedGraph and bigWig.
@@ -611,45 +517,22 @@ def makeBedGraph(cleanBed,sizesFile):
 		if cfg.verbose: log(cmd2)
 		os.system(cmd2)
 	return cleanBed.replace('.bed', '.bedgraph')
-		
-def makeClusterCenter(windowsFile):
-	# Usage: Generate a file of cluster centers.
-	# Input: Raw CLIPper output file.
-	# Output: File with coordinates for the center of each CLIPper cluster.
-	cleanBed = cleanBedFile(windowsFile)
-	centers=cleanBed.replace('.bed','.clusterCenter')
-	f = open(centers, 'w')
-	with open(cleanBed, 'r') as infile:
-		for line in infile:
-			elementList = line.strip().split('\t')
-			diff=abs(int((int(elementList[1])-int(elementList[2]))/2))
-			f.write(elementList[0]+'\t'+str(int(elementList[1])+diff)+'\t'+str(int(elementList[1])+diff+1)+'\n')
-	f.close()
-	return centers
 
-def getClusterIntensity(bedGraph,centerCoordinates):
-	# Usage: Generate a matrix of read itensity values around CLIPper cluster center.
-	# Input: BedGraph and cluster center file.
-	# Output: Generates a matrix, which is passed into R.
-	program=cfg.home + '/bin/grep_chip-seq_intensity.pl'
-	cmd = "perl {} {} {} > /dev/null".format(program, centerCoordinates, bedGraph)
-	os.system(cmd)
-	
 #####################
 ### PARTITIONING  ###
 #####################
 
-def getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists):
+def getReadTypes(gene_reads,pathToGeneLists):
 	# Usage: Given a list of genes, return all reads for the associated genes.
 	# Input: Gene list and the path to lowFDR read file.
 	# Output: List of reads assocaited with the given genes.
-	lowFDRgenelist = []
+	genelist = []
 	for path in pathToGeneLists:
-		outfile = path + '_LowFDRreads.bed'
-		cmd = "grep -F -f {} {} > {}".format(path, CLIPPERlowFDR, outfile)
+		outfile = path + '_reads.bed'
+		cmd = "grep -F -f {} {} > {}".format(path, gene_reads, outfile)
 		os.system(cmd)
-		lowFDRgenelist=lowFDRgenelist+[outfile]
-	return lowFDRgenelist
+		genelist=genelist+[outfile]
+	return genelist
 
 def compareLists(list1,list2,outname):
 	# Usage: Compare gene lists and output matches to the file. 
@@ -666,52 +549,53 @@ def compareLists(list1,list2,outname):
 	outfh.close()
 	return outputName
 
-def getLowFDRGeneTypes(CLIPperGeneList,geneAnnot):
+def getGeneTypes(GeneList,geneAnnot):
 	# Usage: Get all genes listed under each type, compare to CLIPper targets. (--clipper option)
 	# Input: .bed file passed into CLIPper and the CLIPper windows file.
-	# Output: Path to file containing all CLIPper genes of each type.
+	# Output: Path to file containing genes of each type.
 	geneTypes=[]
 	for genepath in geneAnnot:
 		if 'snoRNA' not in genepath:
-			lowFDRgenes = compareLists(CLIPperGeneList, genepath, os.path.split(genepath)[1])
-			geneTypes.append(lowFDRgenes)
+			genes = compareLists(GeneList, genepath, os.path.split(genepath)[1])
+			geneTypes.append(genes)
 	return geneTypes
 	
 def get_gene_counts(bedFile):
 	bf=pd.DataFrame(pd.read_table(bedFile,header=None))
-	bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
-	bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
+	bf.columns=['Chr','Start','Stop','name','Q','Strand']
+	bf['geneName']=bf['name'].apply(lambda x: x.split('_')[0])
 	geneCounts=bf.groupby('geneName').size()
 	geneCounts.sort(ascending=False)
 	return geneCounts
 
 def getSnoRNAreads(negAndPosMerged,snoRNAindex):
 	program='intersectBed'		
-	bedFile=cfg.outfilepath+'clipGenes_snoRNA_LowFDRreads.bed'
+	bedFile=cfg.outfilepath+'clipGenes_snoRNA_reads.bed'
 	cmd = "bedtools intersect -a {} -b {} -s -wa -wb -sorted > {}".format(negAndPosMerged, snoRNAindex, bedFile)
 	os.system(cmd)
 	return bedFile
 
 def countSnoRNAs(bedFile_sno):
 	bf=pd.DataFrame(pd.read_table(bedFile_sno,header=None))
-	bf.columns=['Chr','Start','End','CLIPper_name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
+	bf.columns=['Chr','Start','End','name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
 	geneCounts=bf.groupby('name_snoRNA').size()
 	geneCounts.sort(ascending=False)
 	return geneCounts
 
 def countRemainingGeneTypes(remaining):
+	log("countRemainingGeneTypes") #remove later
 	for bedFile in remaining:
 		try:
 			bf=pd.DataFrame(pd.read_table(bedFile,header=None))
-			bf.columns=['Chr','Start','End','ReadName','Q','Strand','CLIPper_winChr','CLIPper_winStart','CLIPper_winEmd','CLIPper_winaName','CLIPper_winP','CLIPper_winStrand']
+			bf.columns=['Chr','Start','End','ReadName','Q','Strand','winChr','winStart','winEmd','winaName','winP','winStrand']
 			# *** THIS MAY DEPEND UPON THE VERSION OF CLIPPER USED ***
-			bf['geneName']=bf['CLIPper_winaName'].apply(lambda x: x.split('_')[0])
+			bf['geneName']=bf['winaName'].apply(lambda x: x.split('_')[0])
 			geneCounts=bf.groupby('geneName').size()
 			geneCounts.sort(ascending=False) 
 						
 			head,fname=os.path.split(bedFile)
 			geneType=fname.split("_")[1]
-			cfg.outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_%s'%geneType
+			cfg.outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_%s.txt'%geneType
 			geneCounts.to_csv(cfg.outfilepathToSave)
 			
 		except ValueError:
@@ -754,12 +638,12 @@ def read_readspergene_file(data_dict, pos, fn):
 	return data_dict
 	
 def gene_binding_by_region():
-	fivePfile = cfg.outfilepath + '/PlotData_ReadsPerGene_5pUTR'
-	threePfile = cfg.outfilepath + '/PlotData_ReadsPerGene_3pUTR'
-	CDSfile = cfg.outfilepath + '/PlotData_ReadsPerGene_CDS'
-	exonfile = cfg.outfilepath + '/PlotData_ReadsPerGene_Exons'
-	intronfile = cfg.outfilepath + '/PlotData_ReadsPerGene_Introns'
-	allfile = cfg.outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
+	fivePfile = cfg.outfilepath + '/PlotData_ReadsPerGene_5pUTR.txt'
+	threePfile = cfg.outfilepath + '/PlotData_ReadsPerGene_3pUTR.txt'
+	CDSfile = cfg.outfilepath + '/PlotData_ReadsPerGene_CDS.txt'
+	exonfile = cfg.outfilepath + '/PlotData_ReadsPerGene_Exons.txt'
+	intronfile = cfg.outfilepath + '/PlotData_ReadsPerGene_Introns.txt'
+	allfile = cfg.outfilepath + '/PlotData_ReadsPerGene_proteinCoding.txt'
 	
 	gene_to_counts = defaultdict(lambda: [0,0,0,0,0,0])  # all, exon, intron, 5P, CDS, 3P
 	if glob.glob(allfile):
@@ -775,7 +659,7 @@ def gene_binding_by_region():
 	if glob.glob(threePfile):
 		gene_to_counts = read_readspergene_file(gene_to_counts, 5, threePfile)
 	
-	ofn = cfg.outfilepath + '/PlotData_proteinCoding_byRegion'
+	ofn = cfg.outfilepath + '/PlotData_proteinCoding_byRegion.txt'
 	with open(ofn, 'w') as ofile:
 		writer = csv.writer(ofile)
 		writer.writerow(['Gene', 'All', 'Exonic', 'Intronic', '5P', 'CDS', '3P'])
@@ -788,25 +672,11 @@ def gene_binding_by_region():
 ###  METAGENES    ###
 #####################	
 
-def makeAvgGraph(bedGraph,utrFile,genesFile,sizesFile):
-	# Usage: Generate a matrix of read intensity values across gene body.
-	# Input: BedGraph.
-	# Output: Generates two matrices.
-	program1 = cfg.home + '/bin/bedGraph2tab.pl'
-	tabFile = bedGraph.replace('.bedgraph','.tab')
-	cmd = "perl {} {} {} {} {} > /dev/null".format(program1, genesFile, sizesFile, bedGraph, tabFile)
-	os.system(cmd)
-
-	program2 = cfg.home + "/bin/averageGraph_scaled_tab.pl"
-	outhandle = tabFile.replace('.tab','_UTRs')
-	cmd = "perl {} {} {} {} {} > /dev/null".format(program2, utrFile, tabFile, tabFile, outhandle)
-	os.system(cmd)	
-
 def getGeneStartStop(bedFile,geneRef):
 	try:
 		bf=pd.DataFrame(pd.read_table(bedFile,header=None))
-		bf.columns=['Chr','Start','End','ReadName','Q','Strand','CLIPper_winChr','CLIPper_winStart','CLIPper_winEmd','CLIPper_winaName','CLIPper_winP','CLIPper_winStrand']
-		bf['geneName']=bf['CLIPper_winaName'].apply(lambda x: x.split('_')[0].split('.')[0])
+		bf.columns=['Chr','Start','End','ReadName','Q','Strand','winChr','winStart','winEmd','winaName','winP','winStrand']
+		bf['geneName']=bf['winaName'].apply(lambda x: x.split('_')[0].split('.')[0])
 		merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
 		ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','End','Strand']]
 		outfilepathToSave=bedFile.replace(".bed",".geneStartStop")
@@ -844,19 +714,17 @@ def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 	
 	filesToCount = reads
 	filesToCount.extend([base + '_trimmed.fastq' for base in bases])
-	filesToCount.extend([base + '_trimmed_mappedToRepeat_withDupes.bed' for base in bases])
-	filesToCount.extend([base + '_trimmed_mappedToTrna_withDupes.bed' for base in bases])
-	filesToCount.extend([base + '_trimmed_mappedToGenome_withDupes.bed' for base in bases])
-	filesToCount.extend([base + '_trimmed_mappedToGenome_withDupes_noRepeat.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToRepeat.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToTrna.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToGenome.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToGenome_noRepeat.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToendoVirus.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToDV.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToZV.bed' for base in bases])
+	filesToCount.extend([base + '_trimmed_mappedToHCV_JFH1.bed' for base in bases])
 	
-	if cfg.run_clipper:
-		clipperIN = cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved.bed'%(threshold_nr,index_tag)
-		clipperOUT = cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters_lowFDRreads.bed'%(threshold_nr,index_tag)
-		filesToCount.extend([clipperIN, clipperOUT])
-	
-	fileNameBases = ['Raw', 'No dupes', 'Repeat Mapped', 'tRNA Mapped', 'Genome Mapped', 'Blacklist Masked']
+	fileNameBases = ['Raw', 'No dupes', 'Repeat Mapped', 'tRNA Mapped', 'Genome Mapped', 'Blacklist Masked', 'EndoVirus', 'DV', 'ZV', 'HCV_JFH1']
 	fileNames = [b + " (R{})".format(i + 1) for b in fileNameBases for i in range(nsamp)]
-	if cfg.run_clipper: fileNames.extend(['ClipperIn', 'ClipperOut'])
 	
 	counts = []
 	counter = 0
@@ -884,7 +752,7 @@ def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 	readDF=pd.DataFrame()
 	readDF['File_name'] = fileNames
 	readDF['Reads_per_file'] = counts
-	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadsPerPipeFile'
+	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadsPerPipeFile.txt'
 	readDF.to_csv(outfilepathToSave)
 
 def plot_BoundGeneTypes():
@@ -905,7 +773,7 @@ def plot_BoundGeneTypes():
 		record.loc[gName,'genesBound']=glist.shape[0]
 		record.loc[gName,'totalReads']=glist['Count'].sum()
 	record.sort('genesBound',inplace=True)
-	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadAndGeneCountsPerGenetype'
+	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadAndGeneCountsPerGenetype.txt'
 	record.to_csv(outfilepathToSave)
 	ind = np.arange(record.shape[0]) + 0.5
 	plt.bar(ind,record['genesBound'],align='center',color='blue')
@@ -920,100 +788,38 @@ def plot_BoundGeneTypes():
 	plt.tick_params(axis='yticks',labelsize=5)
 	plt.title('Bound genes by class',fontsize=5)
 	
-def plot_ReadsPerCluster(threshold_nr, index_tag):
-	readPerCluster=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters.readsPerCluster'%(threshold_nr,index_tag)
-	clust=pd.DataFrame(pd.read_table(readPerCluster,header=None))
-	clust.columns=['ReadsPerCluster']
-	clust=clust['ReadsPerCluster']
-	interval=10
-	bins=range(min(clust)-10,max(clust)+10,interval)
-	hist,bins=np.histogram(clust,bins=bins)
-	width=0.7*(bins[1]-bins[0]) 
-	center=(bins[:-1] + bins[1:])/2 
-	plt.bar(center, hist,align='center',width=width)
-	locs,pltlabels = plt.yticks(fontsize=5)
-	locs,pltlabels = plt.xticks(center,center,fontsize=5)
-	plt.setp(pltlabels, rotation=90, fontsize=3.5)
-	plt.tick_params(axis='yticks',labelsize=5) 
-	plt.xlabel('Reads per cluster (bin=%s)'%interval,fontsize=5)
-	plt.ylabel('Frequency (RT stop count)',fontsize=5)
-	plt.title('Reads per cluster',fontsize=5)
-	plt.xlim(0,100) # Make the histogram easy to view.
-	# plt.xlim(-interval,np.max(center)+interval)
-	
-def plot_ClusterSizes(threshold_nr, index_tag):
-	clipClusters=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters'%(threshold_nr,index_tag)
-	clust=pd.DataFrame(pd.read_table(clipClusters,header=None,skiprows=1))
-	clust.columns=['chr','start','end','name','score','strand','m1','m2']
-	clust['clusterSize']=clust['start']-clust['end']
-	clust['clusterSize']=clust['clusterSize'].apply(lambda x: math.fabs(x))
-	plt.boxplot(clust['clusterSize'])
-	plt.tick_params(axis='x',labelbottom='off') 
-	ax=plt.gca()
-	for line in ax.get_xticklines():
-		line.set_markersize(0)
-	plt.ylabel('Cluster length (bases)',fontsize=5)
-	locs,pltlabels = plt.yticks(fontsize=5)
-	plt.title('Cluster size',fontsize=5)
-
-def plot_clusterBindingIntensity(threshold_nr, index_tag):
-	clusterCenterHeatmap=cfg.outfilepath+cfg.sampleName+'_threshold=%s_%s_allreads.mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters_cleaned_sorted.clusterCenter_heatmap.txt'%(threshold_nr,index_tag)
-	hmap=pd.DataFrame(pd.read_table(clusterCenterHeatmap,header=None,skiprows=1))
-	hmap_vals=hmap.ix[:,1:]
-	sums=hmap_vals.sum(axis=1)
-	hmap_vals=hmap_vals.loc[np.argsort(sums),:]
-	plt.ylim(0,hmap_vals.shape[0])
-	p=plt.pcolormesh(np.array(hmap_vals),cmap='Blues')
-	plt.tick_params(axis='x',labelbottom='off') 
-	plt.xlabel('Cluster position',fontsize=5)
-	locs,pltlabels = plt.yticks(fontsize=5)
-	plt.ylabel('Cluster number',fontsize=5)
-	plt.title('Read distribution',fontsize=5)
-
 def readUTRfile(path):
 	geneCounts=pd.read_csv(path,header=None)
 	geneCounts.columns=['Gene_name','Count']
 	return geneCounts
 
 def plot_readsBymRNAregion(ax): 
-	fivePfile = cfg.outfilepath+'/PlotData_ReadsPerGene_5pUTR'
-	threePfile = cfg.outfilepath+'/PlotData_ReadsPerGene_3pUTR'
-	CDSfile = cfg.outfilepath+'/PlotData_ReadsPerGene_CDS'
+	fivePfile = cfg.outfilepath+'/PlotData_ReadsPerGene_5pUTR.txt'
+	threePfile = cfg.outfilepath+'/PlotData_ReadsPerGene_3pUTR.txt'
+	CDSfile = cfg.outfilepath+'/PlotData_ReadsPerGene_CDS.txt'
 	pc_5pReads = readUTRfile(fivePfile)['Count'].sum() if glob.glob(fivePfile) else 0
 	pc_3pReads = readUTRfile(threePfile)['Count'].sum() if glob.glob(threePfile) else 0
 	pc_CDSReads = readUTRfile(CDSfile)['Count'].sum() if glob.glob(CDSfile) else 0
 	non_intronic=pc_5pReads+pc_3pReads+pc_CDSReads
-	allProteinCoding=cfg.outfilepath +'clipGenes_proteinCoding_LowFDRreads_centerCoord.bed'
+	allProteinCoding=cfg.outfilepath +'clipGenes_proteinCoding_reads_centerCoord.bed'
 	all_pc=pd.DataFrame(pd.read_table(allProteinCoding,header=None))
 	pc_allReads=all_pc.shape[0]
 	v=[float(pc_allReads-non_intronic)/pc_allReads,float(pc_5pReads)/pc_allReads,float(pc_CDSReads)/pc_allReads,float(pc_3pReads)/pc_allReads]
 	pie_wedges=ax.pie(v,labels=["Intronic","5p UTR","CDS","3pUTR"],labeldistance=1.1,autopct='%1.1f%%')
-	plt.rcParams['font.size']=5
+	plt.rcParams['font.size']=2
 	for wedge in pie_wedges[0]:
 		wedge.set_edgecolor('black')
 		wedge.set_lw(1)
 		
-def plot_figure1(nsamp, reads, threshold_nr, index_tag):
-	if cfg.run_clipper:
-		plt.subplot(2,3,1) 
-		plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag)
-		plt.subplot(2,3,2)
-		plot_ReadsPerCluster(threshold_nr, index_tag)
-		plt.subplot(2,3,3)
-		plot_ClusterSizes(threshold_nr, index_tag)
-		plt.subplot(2,3,4)
-		plot_clusterBindingIntensity(threshold_nr, index_tag)
-		ax = plt.subplot(2,3,5)
-		plot_readsBymRNAregion(ax)
-		plt.subplot(2,3,6)
-		plot_BoundGeneTypes()
-	else:
-		plt.subplot(2,3,1) 
-		plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag)
-		ax = plt.subplot(2,3,2)
-		plot_readsBymRNAregion(ax)
-		plt.subplot(2,3,3)
-		plot_BoundGeneTypes()
+def plot_figure1(nsamp, reads, threshold_nr, index_tag, exoViruses, reads_files):
+	plt.subplot(2,2,1) 
+	plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag)
+	ax = plt.subplot(2,2,2)
+	plot_readsBymRNAregion(ax)
+	plt.subplot(2,2,3)
+	plot_BoundGeneTypes()
+	plt.subplot(2,2,4)
+	make_reads_by_type_pie2(nsamp, reads, threshold_nr, index_tag)
 	plt.tight_layout()
 	
 ############
@@ -1022,7 +828,7 @@ def plot_figure1(nsamp, reads, threshold_nr, index_tag):
 
 
 def plot_mRNAgeneBodyDist():
-	averageGraph=cfg.outfilepath+'clipGenes_proteinCoding_LowFDRreads_centerCoord_UTRs_scaled_cds200_abt0_averageGraph.txt'
+	averageGraph=cfg.outfilepath+'clipGenes_proteinCoding_reads_centerCoord_UTRs_scaled_cds200_abt0_averageGraph.txt'
 	hmap=pd.DataFrame(pd.read_table(averageGraph,header=None,skiprows=1))
 	hmap=hmap.set_index(0)
 	avgTrace=hmap.loc['treat',:]
@@ -1043,16 +849,16 @@ def convertENBLids(enst_name, ensemblGeneAnnot):
 def getUTRbindingProfile(utr,hmap_m):
 	if utr=='5p':
 		ix=(hmap_m[range(201,601)].sum(axis=1)==0)&(hmap_m[range(1,201)].sum(axis=1)>0)
-		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_5pUTR')
+		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_5pUTR.txt')
 	elif utr=='3p':
 		ix=(hmap_m[range(1,401)].sum(axis=1)==0)&(hmap_m[range(401,601)].sum(axis=1)>0)
-		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_3pUTR')
+		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_3pUTR.txt')
 	elif utr=='5p3p':
 		ix=(hmap_m[range(201,401)].sum(axis=1)==0)&(hmap_m[range(401,601)].sum(axis=1)>0)&(hmap_m[range(1,201)].sum(axis=1)>0)
-		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_5p3pUTR')
+		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_5p3pUTR.txt')
 	else:  # utr=='CDS'
 		ix=(hmap_m[range(1,201)].sum(axis=1)==0)&(hmap_m[range(401,601)].sum(axis=1)==0)&(hmap_m[range(201,401)].sum(axis=1)>0)
-		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_CDS')
+		screen=readUTRfile(cfg.outfilepath+'/PlotData_ReadsPerGene_CDS.txt')
 		
 	# Ensure all genes are also identified in pre-allocated gene lists.
 	screen['Gene_name'] = screen['Gene_name'].map(lambda x: x.split('.')[0]) # remove transcript number from gene name
@@ -1063,10 +869,10 @@ def getUTRbindingProfile(utr,hmap_m):
 	return hmap_m_utrSpec_filter
 
 def plot_geneBodyPartition(ensemblGeneAnnot):
-	treatMatrix=cfg.outfilepath+'clipGenes_proteinCoding_LowFDRreads_centerCoord_UTRs_scaled_cds200_abt0_treatmatrix.txt'
+	treatMatrix=cfg.outfilepath+'clipGenes_proteinCoding_reads_centerCoord_UTRs_scaled_cds200_abt0_treatmatrix.txt'
 	hmap=pd.DataFrame(pd.read_table(treatMatrix,header=None,skiprows=1))
 	
-	# Ensure genes recovered from this analysis are independently identified using partitioning of CLIPper cluster data.
+	# Ensure genes recovered from this analysis are independently identified 
 	hmap['ENSG_ID']=hmap.ix[:,0].apply(convertENBLids, args=(ensemblGeneAnnot,))
 	bound_pc = cfg.outfilepath+'clipGenes_proteinCoding'
 	pc_genes=pd.DataFrame(pd.read_table(bound_pc,header=None,))
@@ -1074,7 +880,7 @@ def plot_geneBodyPartition(ensemblGeneAnnot):
 	hmap_m=pd.merge(hmap,pc_genes,left_on='ENSG_ID',right_on='ENSG_ID',how='inner') 
 	
 	# Isolate intronic bound genes.
-	tosave=cfg.outfilepath+'PlotData_ExclusiveBound_Intronic' 
+	tosave=cfg.outfilepath+'PlotData_ExclusiveBound_Intronic.tdt' 
 	intronicBoundGenes=list(set(pc_genes['ENSG_ID'])-set(hmap_m['ENSG_ID']))
 	np.savetxt(tosave,np.array(intronicBoundGenes),fmt="%s")
 	
@@ -1086,12 +892,12 @@ def plot_geneBodyPartition(ensemblGeneAnnot):
 		elif i == 1: name = "CDS"
 		elif i == 2: name = "3pUTR"
 		else: name = '5p3pUTR'
-		fn = cfg.outfilepath+'/PlotData_ReadsPerGene_'+name
+		fn = cfg.outfilepath+'/PlotData_ReadsPerGene_'+name+".txt"
 		if not glob.glob(fn): continue
 		
 		plt.subplot2grid((2,4),(1,i),colspan=1)
 		utrMatrix=getUTRbindingProfile(geneTypes[i],hmap_m)
-		tosave=cfg.outfilepath+'PlotData_ExclusiveBound_%s'%geneTypes[i] 
+		tosave=cfg.outfilepath+'PlotData_ExclusiveBound_%s.txt'%geneTypes[i] 
 		np.savetxt(tosave,np.array(list(set(utrMatrix['ENSG_ID']))),fmt="%s")
 		dataToPlot=utrMatrix[range(1,601)]
 		
@@ -1127,7 +933,8 @@ def read_csv_by_line(fn):
 		ifile.seek(0)
 		reader.next()  # skip header
 		row = reader.next()
-		start = int(row[9])
+		# added "-1"
+		start = int(row[9])-1
 		end = int(row[8])
 	return np.array(RTpositions_plus), np.array(RTpositions_minus), start, end
 	
@@ -1147,14 +954,82 @@ def get_histogram(RTpositions, bins, repeat_genome_bases, start, end):
 	
 	return hist, histPlot, sequence, center	
 
+
+def plot_RT_stops(pos_reads, neg_reads, name):
+        #repeat_genome = np.genfromtxt(repeatGenomeBuild,dtype='string')
+        #repeat_genome_bases = repeat_genome[1]
+	pos_neg_map = {}
+	for read in pos_reads:
+		if read in pos_neg_map:
+			pos_neg_map[read][0] += 1
+		else:
+			pos_neg_map[read] = [0 for x in range(2)]
+			pos_neg_map[read][0] = 1
+			pos_neg_map[read][1] = 0
+
+	for read in neg_reads:
+		if read in pos_neg_map:
+			pos_neg_map[read][1] += 1
+		else:
+			pos_neg_map[read] = [0 for x in range(2)]
+			pos_neg_map[read][0] = 0
+			pos_neg_map[read][1] = 1
+
+	if pos_reads and neg_reads:
+		num_bins = max(max(pos_reads), max(neg_reads)) 
+	elif pos_reads:
+		num_bins = max(pos_reads)
+	elif neg_reads:
+		num_bins = max(neg_reads)
+	else:
+		num_bins = 0
+	num_bins += 200
+	bins_initial = range(num_bins)
+	
+	hist_pos, bins_pos = np.histogram(pos_reads, bins = bins_initial)
+	center_pos = (bins_pos[:-1] + bins_pos[1:])/2
+	histPlot_pos = np.array(hist_pos, dtype=float)
+	#histPlot_pos = np.array(histPlot_pos/float(len(pos_reads)), dtype=float)
+	#center_pos=center_pos/max(center_pos)
+
+	hist_neg, bins_neg = np.histogram(neg_reads, bins = bins_initial)
+	center_neg = (bins_neg[:-1] + bins_neg[1:])/2
+	#center_neg=center_neg/max(center_neg)
+
+	histPlot_neg = np.array(hist_neg * -1, dtype=float)
+	neg_min = min(histPlot_neg)
+	pos_max = max(histPlot_pos)
+	if abs(neg_min) > 5 * pos_max:
+		pos_max = abs(neg_min) / 5
+	elif pos_max > 5 * abs(neg_min):
+		neg_min = pos_max / -5
+	if pos_max < 1:
+		pos_max = 1
+	if neg_min > -1:
+		neg_min = -1
+
+	plt.bar(center_pos.tolist(), histPlot_pos.tolist(), align = 'center', width = 1, color = 'blue',
+		edgecolor = 'blue', alpha = 0.5)
+	plt.bar(center_neg.tolist(), histPlot_neg.tolist(), align = 'center', width = 1, color = 'red', 
+		edgecolor = 'red', alpha = 0.5)
+
+	plt.xticks(rotation='vertical')#,verticalalignment='bottom')
+	plt.xlim(0, num_bins)
+	plt.ylim(1.2 * neg_min, 1.2 * pos_max)
+	name_=name.replace(".txt", "")
+	plt.title("%s" % name_)
+	"""plt.savefig(cfg.outfilepath + "Figure%s.png" % ID, format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.cla()
+	plt.clf()"""
+
 def plot_repeatRNA(repeatGenomeBuild):
 	repeat_genome = np.genfromtxt(repeatGenomeBuild,dtype='string')
 	repeat_genome_bases = repeat_genome[1]
-	
 	repFiles=glob.glob(cfg.outfilepath + '/PlotData_RepeatRNAreads_*')
 	
 	plotDim=math.ceil(math.sqrt(len(repFiles)))
 	i=0
+	import pickle
 	for path in repFiles:
 		name=path.split('RepeatRNAreads_')[-1]
 		try:
@@ -1168,27 +1043,29 @@ def plot_repeatRNA(repeatGenomeBuild):
 		width = 0.7*(bins[1]-bins[0])
 		(hist_plus, histPlot_plus, sequence_plus, center_plus) = get_histogram(RTpositions_plus, bins, repeat_genome_bases, start, end)
 		(hist_minus, histPlot_minus, sequence_minus, center_minus) = get_histogram(RTpositions_minus, bins, repeat_genome_bases, start, end)
-		
+	
 		# Subplot
 		plt.subplot(plotDim, plotDim, i+1)
-		plt.bar(center_plus, histPlot_plus, align='center', width=width, color='blue', alpha=0.45)
+		plot_RT_stops(RTpositions_plus.tolist(), RTpositions_minus.tolist(), name)
+		"""plt.bar(center_plus, histPlot_plus, align='center', width=width, color='blue', alpha=0.45)
 		plt.tick_params(axis='x', labelsize=2.5) 
 		plt.tick_params(axis='y', labelsize=2.5)  
 		plt.title('RT stops for %s: %s'%(name, len(RTpositions_plus)), fontsize=5)
-		plt.xlim(start, end)  
-		
+		plt.xlim(start, end)  """
+
 		# Record data
 		storageDF = pd.DataFrame()
 		storageDF['Sequence'] = pd.Series(list(sequence_plus))
 		storageDF['RT_stops'] = np.array(list(hist_plus))
-		storageDF['RT_stops_norm'] = np.array(list(histPlot_plus))	
 		storageDF['RT_stops_minus'] = np.array(list(hist_minus))
-		storageDF['RT_stops_minus_norm'] = np.array(list(histPlot_minus))	  
 		outfilepathToSave = cfg.outfilepath + '/PlotData_RepeatRNAHist_%s'%name
 		storageDF.to_csv(outfilepathToSave)
 		i += 1
-	plt.tight_layout()
 
+	plt.figtext(0.42, 1.02, 'RT Stops (+ blue, - red)', fontdict=None, fontsize='9')
+	plt.figtext(0.46, 0.55, 'Genomic Coordinate', fontdict=None, fontsize='7')
+	plt.figtext(-0.01, 0.815, 'No. of Hits', fontdict=None, fontsize='7', rotation='vertical')
+	
 ############
 ## PLOT 4 ##
 ############
@@ -1196,7 +1073,7 @@ def plot_repeatRNA(repeatGenomeBuild):
 def plot_rDNA(start18s, end18s, start5s, end5s, start28s, end28s, rRNAend):
 	plt.subplot2grid((3,3),(0,0),colspan=3)
 	name='rDNA'
-	rDNA=glob.glob(cfg.outfilepath + 'PlotData_RepeatRNAreads_rDNA')
+	rDNA=glob.glob(cfg.outfilepath + 'PlotData_RepeatRNAreads_rDNA.txt')
 	
 	(RTpositions, RTpositions_minus, start, end) = read_csv_by_line(rDNA[0])
 
@@ -1280,16 +1157,16 @@ def getBindingFrac(type_specific):
 
 def plot_snorna(snorna_file):
 	bf_sno=pd.read_table(snorna_file,header=None)
-	bf_sno.columns=['Chr','Start','End','CLIPper_name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
+	bf_sno.columns=['Chr','Start','End','name','Q','Strand','Chr_snoRNA','Start_snoRNA','Stop_snoRNA','name_snoRNA','Type','strand_snoRNA']
 	snoTypes=pd.DataFrame(bf_sno.groupby('Type').size())
 	snoTypes.columns=['Reads']
 	snoTypes['Fraction']=snoTypes['Reads']/sum(snoTypes['Reads'])
-	outfilepathToSave=cfg.outfilepath+'/PlotData_readsPerSnoRNAType'
+	outfilepathToSave=cfg.outfilepath+'/PlotData_readsPerSnoRNAType.txt'
 	snoTypes.to_csv(outfilepathToSave)
 
 	snoTypesAndGenes=pd.DataFrame(bf_sno.groupby(['Type','name_snoRNA']).size())
 	snoTypesAndGenes.columns=['Count_per_gene']
-	outfilepathToSave=cfg.outfilepath+'/PlotData_geneStatsPerSnoRNAType'
+	outfilepathToSave=cfg.outfilepath+'/PlotData_geneStatsPerSnoRNAType.txt'
 	snoTypesAndGenes.to_csv(outfilepathToSave)
 		  
 	ax=plt.subplot(2,2,1)
@@ -1313,7 +1190,7 @@ def plot_snorna(snorna_file):
 		else:
 			title="Unknown"
 		
-		outfilepathToSave=cfg.outfilepath+'/PlotData_snoRNAReadDist_%s'%sType
+		outfilepathToSave=cfg.outfilepath+'/PlotData_snoRNAReadDist_%s.txt'%sType
 		sno_profile.to_csv(outfilepathToSave)
 		
 		plt.subplot(2,3,i)
@@ -1351,7 +1228,7 @@ def plot_ncrnas(st_stopFiles, expand):
 	plotDim=math.ceil(math.sqrt(len(st_stopFiles)))
 	i=1
 	for st_file in st_stopFiles:
-		name=st_file.split('clipGenes_')[1].split('_LowFDRreads')[0]
+		name=st_file.split('clipGenes_')[1].split('_reads')[0]
 		tmp=pd.read_csv(st_file)
 		tmp['RT_stop']=tmp['Start']+expand
 		tmp_profile=getncRNABindingFrac(tmp)
@@ -1367,6 +1244,208 @@ def plot_ncrnas(st_stopFiles, expand):
 		plt.xlabel('Fraction of gene body (5p - 3p)',fontsize=5)
 		plt.title('Binding profile for %s'%name,fontsize=5)
 		i+=1
+		
+
+#Streamline these three functions later.
+def viral_RT_stops(pathtofile, filename, exoV_index):
+        exoV_genome = np.genfromtxt(exoV_index[0],dtype='string')
+        exoV_genome_bases = exoV_genome[1]
+
+	pos_reads = []
+	neg_reads = []
+	filename_split = filename.split("=")
+	ID = "7_" + filename_split[1].split("_")[2]
+	name = filename_split[0].strip("_threshold") + "_" + filename_split[1].split("_")[2] + ".txt"
+	with open(pathtofile, 'r') as f:
+		lines = [line.split("\t") for line in f]
+		num_lines = len(lines)
+		for i in range(num_lines):
+			if lines[i][5][0] == '+':
+				pos_reads.append(int(lines[i][2]))
+			else:
+				neg_reads.append(int(lines[i][2]))
+
+       # Histogram of RT stops across gene body
+	start=0
+	end=len(exoV_genome_bases)
+	bins = range(start, end + 2, 1)
+       	width = 0.7*(bins[1]-bins[0])
+       	(hist_plus, histPlot_plus, sequence_plus, center_plus) = get_histogram(pos_reads, bins, exoV_genome_bases, start, end)
+       	(hist_minus, histPlot_minus, sequence_minus, center_minus) = get_histogram(neg_reads, bins, exoV_genome_bases, start, end)
+
+	plot_RT_stops(pos_reads, neg_reads, name)
+
+       	# Record data
+	name = filename_split[1].split("_")[2] + ".txt"
+       	storageDF = pd.DataFrame()
+       	storageDF['Sequence'] = pd.Series(list(sequence_plus))
+       	storageDF['RT_stops'] = np.array(list(hist_plus))
+       	storageDF['RT_stops_minus'] = np.array(list(hist_minus))
+       	outfilepathToSave = cfg.outfilepath + '/PlotData_RepeatRNAHist_%s'%name
+       	storageDF.to_csv(outfilepathToSave)
+       	i += 1
+
+	plt.savefig(cfg.outfilepath + "Figure%s.png" % ID, format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.cla()
+	plt.clf()
+
+def make_reads_by_region_pie():
+	reads_by_type = {}
+	read_counts_by_type = {}
+	gene_types = ["5pUTR", "3pUTR", "CDS", "Introns"]
+
+	for gene_type in gene_types:
+		reads_by_type[gene_type] = set()
+		read_counts_by_type[gene_type] = {}
+		name = cfg.outfilepath + "PlotData_ReadsPerGene_%s.txt" % gene_type
+		if not glob.glob(name):
+			continue
+		with open(name, 'r') as f:
+			lines = list(csv.reader(f))
+			for line in lines:
+				reads_by_type[gene_type].add(line[0])
+				read_counts_by_type[gene_type][line[0]] = int(line[1])
+
+	total_counts = {}
+	for gene_type in gene_types:
+		total_counts[gene_type] = 0
+		for gene in read_counts_by_type[gene_type]:
+			total_counts[gene_type] += read_counts_by_type[gene_type][gene]
+
+	plt.figure(1, figsize=(6,6))
+	fracs = []
+	for gene_type in gene_types:
+		fracs.append(total_counts[gene_type])
+	plt.pie(fracs, labels=gene_types, autopct='%1.1f%%', startangle=90)
+	plt.axis("equal")
+	plt.title('Reads per mRNA region', bbox={'facecolor':'0.8', 'pad':5}, loc = "left")
+	plt.savefig(cfg.outfilepath + "Figure_Reads_By_Region_Pie.png",format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.cla()
+	plt.clf()
+
+def make_reads_by_type_pie2(nsamp, reads, threshold_nr, index_tag):
+
+	outfilepathToRead=cfg.outfilepath + '/PlotData_ReadsPerPipeFile.txt'
+	readDF = pd.read_csv(outfilepathToRead)
+	df=readDF.set_index("File_name")
+
+	num_reads = {}
+	num_reads["Genome"]=df.loc["Genome Mapped (R1)","Reads_per_file"] + df.loc["Genome Mapped (R2)","Reads_per_file"]
+	num_reads["Repeats"]=df.loc["Repeat Mapped (R1)","Reads_per_file"] + df.loc["Repeat Mapped (R2)","Reads_per_file"]
+	num_reads["EndoVirus"]=df.loc["EndoVirus (R1)","Reads_per_file"] + df.loc["EndoVirus (R2)","Reads_per_file"]
+	num_reads["tRNA"]=df.loc["tRNA Mapped (R1)","Reads_per_file"] + df.loc["tRNA Mapped (R2)","Reads_per_file"]
+	num_reads["DV"]=df.loc["DV (R1)","Reads_per_file"] + df.loc["DV (R2)","Reads_per_file"]
+	num_reads["ZV"]=df.loc["ZV (R1)","Reads_per_file"] + df.loc["ZV (R2)","Reads_per_file"]
+	num_reads["HCV_JFH1"]=df.loc["HCV_JFH1 (R1)","Reads_per_file"] + df.loc["HCV_JFH1 (R2)","Reads_per_file"]
+
+        labels = ['Genome', 'EndoVirus','Repeats', 'tRNA', 'DV', 'ZV', 'HCV_JFH1']
+	fracs = []
+	label = []
+	readsum=0
+	num_reads_frac={}
+	for i in range(len(labels)):
+		readsum=readsum+num_reads[labels[i]]
+	for i in range(len(labels)):
+		num_reads_frac[labels[i]]=float(num_reads[labels[i]])/float(readsum)
+	
+	for i in range(len(labels)):
+		if num_reads_frac[labels[i]]>=0.001:
+			fracs.append(num_reads[labels[i]])
+			label.append(labels[i])
+
+	patches, texts, extra = plt.pie(fracs, autopct='%1.1f%%', startangle=90)
+	plt.legend(patches, label, fontsize = "x-small", loc=9, bbox_to_anchor=(0.5, -0.1))
+	plt.axis("equal")
+	plt.title('Reads', bbox={'facecolor':'0.8', 'pad':5}, loc = "left")
+	"""plt.savefig(cfg.outfilepath + "Figure_Reads_By_Type_Pie.png",format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.savefig(cfg.outfilepath + "Figure_Reads_By_Type_Pie.pdf",format='pdf',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.cla()
+	plt.clf()"""
+
+
+def isolateUniqueReads():
+	reads_by_type = {}
+	read_counts_by_type = {}
+	gene_types = ["5pUTR", "3pUTR", "CDS", "Introns"]
+
+	for gene_type in gene_types:
+		reads_by_type[gene_type] = set()
+		read_counts_by_type[gene_type] = {}
+		name = cfg.outfilepath + "PlotData_ReadsPerGene_%s.txt" % gene_type
+		if not glob.glob(name):
+			continue
+		with open(name, 'r') as f:
+			lines = list(csv.reader(f))
+			for line in lines:
+				reads_by_type[gene_type].add(line[0])
+				read_counts_by_type[gene_type][line[0]] = line[1]
+
+	reads_by_type_reduced = {}
+	for gene_type in gene_types:
+		reads_by_type_reduced[gene_type] = reads_by_type[gene_type]
+		for gene_type2 in gene_types:
+			if gene_type != gene_type2:
+				reads_by_type_reduced[gene_type] = reads_by_type_reduced[gene_type] - reads_by_type[gene_type2]
+
+	for gene_type in gene_types:
+		with open(cfg.outfilepath + "PlotData_ReadsPerGene_exc%s.txt" % gene_type, 'w') as f:
+			for gene in reads_by_type_reduced[gene_type]:
+				f.write(gene + ",")
+				f.write(str(read_counts_by_type[gene_type][gene]) + "\n")
+
+def plot_snorna_type():
+	with open(cfg.outfilepath + "PlotData_readsPerSnoRNAType.txt", 'r') as f:
+		lines = list(csv.reader(f, delimiter = ","))
+		lines.pop(0)
+		counts = [0 for i in range(3)]
+		types = ["C", "H", "sca"]
+
+		for line in lines:
+			if line[0] == "C":
+				counts[0] += int(line[1])
+			elif line[0] == "H":
+				counts[1] += int(line[1])
+			else:
+				counts[2] += int(line[1])
+
+	plt.figure(1, figsize=(6,6))
+	patches, texts, extra= plt.pie(counts, autopct='%1.1f%%',  startangle=90)
+	plt.legend(patches, types, fontsize = "x-small", loc=9, bbox_to_anchor=(0.5, -0.1))
+	plt.axis("equal")
+	plt.title('Reads per snoRNA type', bbox={'facecolor':'0.8', 'pad':5}, loc = "left")
+	plt.savefig(cfg.outfilepath + "Figure4b.png",format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.cla()
+	plt.clf()
+
+def plotTopEndo():
+	a=np.random.random(30)
+	cs=cm.Set1(np.arange(30)/30.)
+
+	with open(cfg.outfilepath + "endoVirus_numReads.txt", 'r') as f:
+		lines = list(csv.reader(f, delimiter = '\t'))
+		lines.pop(0)
+
+	names = []
+	read_counts = []
+	total = 0
+	for i in range(25):
+		names.append(lines[i][0])
+		read_counts.append(float(lines[i][3]))
+		total += float(lines[i][3])
+
+	labels = []
+	for i in range(25):
+		labels.append(names[i] +  ", " + str(round(read_counts[i]/total * 100, 4)) + "%" + ", " + str(int(read_counts[i])))
+
+	plt.figure(1, figsize=(6,6))
+	patches, texts = plt.pie(read_counts, startangle=90, colors = cs)
+	plt.legend(patches, labels, fontsize = "x-small", loc=9, bbox_to_anchor=(0.5, -0.1))
+	plt.axis("equal")
+	plt.title('Top 25 EndoVirus', bbox={'facecolor':'0.8', 'pad':5})
+	plt.savefig(cfg.outfilepath + "Figure6.png",format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.cla()
+	plt.clf()
+
 
 def clean_up():
 	os.chdir(cfg.outfilepath)
@@ -1392,11 +1471,8 @@ def clean_up():
 	os.system("mkdir bedfiles")
 	os.system("mv *.mergedRT.bed bedfiles")
 	os.system("mv *.bw *.bedgraph *_cleaned_sorted.bed *_centerCoord.bed bedfiles")
-	if cfg.run_clipper:
-		os.system("mv *_allreads.mergedRT_CLIP_clusters_lowFDRreads* rawdata_and_stats")
-		os.system("mv *.mergedRT_CLIP_clusters.bed rawdata_and_stats")
-	else:
-		os.system("mv *_ens_annotated.bed bedfiles")
+	
+	os.system("mv *_ens_annotated.bed bedfiles")
 
 	os.system("mkdir tRNA")
 	os.system("mv *iclipro/ tRNA")

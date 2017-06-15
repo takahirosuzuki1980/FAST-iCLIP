@@ -32,11 +32,9 @@ parser = argparse.ArgumentParser(description="FAST-iCLIP: a pipeline to process 
 parser.add_argument('-i', metavar='INPUT', nargs='+', help="Up to 4 input fastq or fastq.gz files separated by a space", required=True)
 parser.add_argument('--trimmed', action='store_true', help="flag if files are already trimmed")
 group = parser.add_mutually_exclusive_group()
-group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
-group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
-parser.add_argument('--clipper', action='store_true', help="also run CLIPper on data")
+group.add_argument('--GRCh38', action='store_true', help="required if your CLIP is from human")
+group.add_argument('--GRCm38', action='store_true', help="required if your CLIP is from mouse")
 parser.add_argument('-s', metavar="STAR_INDEX", help="Path to STAR index for your organism", required=True)
-parser.add_argument('-vm', metavar="VIRAL_INDICES", help="Names of viruses to map to, separated by commas with no spaces. These names must be prefixes of bowtie indexes in docs/viral. Example: -vm DV,ZV,HCV_JFH1")
 parser.add_argument('-n', metavar='NAME', help="Name of output directory", required=True)
 parser.add_argument('-o', metavar='OUTPUT', help="Name of directory where output directory will be made", required=True)
 parser.add_argument('-f', metavar='N', type=int, help="First base to keep on 5' end of each read. Default is 18.", default=18)
@@ -53,15 +51,17 @@ parser.add_argument('--verbose', action='store_true', help="Print everything")
 
 # organism
 args = parser.parse_args()
-if not (args.hg19 or args.mm9):
-	print "Error: must include --hg19 or --mm9. Exiting."
+if not (args.GRCh38 or args.GRCm38):
+	print "Error: must include --GRCh38 or --GRCm38. Exiting."
 	exit()
-if args.hg19: org = 'human' 
+if args.GRCh38: org = 'human' 
 else: org = 'mouse'
 
 # input files
 reads = args.i
+reads_files = []
 for fn in reads:
+	reads_files.append(fn)
 	if not glob.glob(fn):
 		print "Error: input file " + fn + " not accessible. Exiting."
 		exit()
@@ -80,15 +80,14 @@ if not glob.glob(star_index):
 	print "Error: STAR index at " + star_index + " not accessible. Exiting."
 	exit()
 	
-# viruses
-viruses = []
-if args.vm:
-	viruses = args.vm.split(',')
-	for v in viruses:
-		viral_pref = cfg.home + "/docs/viral/{}".format(v)
-		if not glob.glob(viral_pref + ".*"):
-			print "Error: Viral index with prefix {} not accessible. Exiting.".format(viral_pref)
-			exit()
+# exoViruses
+exoViruses = []
+exoViruses = ['DV', 'ZV', 'HCV_JFH1']
+for v in exoViruses:
+	viral_pref = cfg.home + "/docs/viral/{}".format(v)
+	if not glob.glob(viral_pref + ".*"):
+		print "Error: Viral index with prefix {} not accessible. Exiting.".format(viral_pref)
+		exit()
 
 # Create log and start pipeline
 cfg.logFile=cfg.outfilepath + "runLog"
@@ -104,9 +103,8 @@ p = args.p # Percentage of bases that must have quality > q during filtering.
 l = args.l +  args.f - 1 # Minimum length of read + 5' adapter
 iCLIP5pBasesToTrim=args.f # Number of reads to trim from 5' end of clip reads + 1 (this number represents the first base kept)
 expand = 15 # Bases to expand around RT position after RT stops are merged.
-cfg.run_clipper = True if args.clipper else False
 cfg.verbose = True if args.verbose else False
-CLIPPERoutNameDelim = '_' # Delimiter that for splitting gene name in the CLIPper windows file.
+NameDelim = '_' # Delimiter that for splitting gene name in the CLIPper windows file.
 
 nsamp = len(reads)
 if not args.tn:
@@ -146,10 +144,11 @@ else:
 	minpass_viral = min(minpass_viral, nsamp) 
 
 if org == 'human':
-	repeat_index=cfg.home + '/docs/hg19/repeat/rep_spaced' # bt2 index for repeat RNA.
-	repeatGenomeBuild=cfg.home+'/docs/hg19/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
-	repeatAnnotation=cfg.home+'/docs/hg19/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
-	retro_index=cfg.home+'/docs/hg19/retroviral/'
+	repeat_index=cfg.home + '/docs/GRCh38/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=cfg.home+'/docs/GRCh38/repeat/repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=cfg.home+'/docs/GRCh38/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	endoVirus_index=cfg.home+'/docs/GRCh38/retroviral/'
+	exoVirus_index=cfg.home+'/docs/viral/'
 	start18s=3657
 	end18s=5527
 	start5s=6623
@@ -157,29 +156,29 @@ if org == 'human':
 	start28s=7935
 	end28s=12969
 	rRNAend=13314
-	index=cfg.home + '/docs/hg19/hg19/hg19' # bt2 index for mapping.
-	index_tag='hg19' # Name of bt2 index.
-	genomeFile=cfg.home+'/docs/hg19/human.hg19.genome' # Genome file for bedGraph, etc.
-	genomeForCLIPper='-shg19' # Parameter for CLIPper.
-	blacklistregions=cfg.home+'/docs/hg19/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
-	repeatregions=cfg.home+'/docs/hg19/repeat_masker.bed' # Repeat masker.
-	geneAnnot=glob.glob(cfg.home+'/docs/hg19/genes_types/*') # List of genes by type.
-	miRNAmasker=cfg.home+'/docs/hg19/miR_sort_clean.bed' # miRNA masker file.
-	fivePUTRBed=cfg.home+'/docs/hg19/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	threePUTRBed=cfg.home+'/docs/hg19/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	exonBed=cfg.home+'/docs/hg19/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	utrFile=cfg.home+'/docs/hg19/hg19_ensembl_UTR_annotation.txt' # UTR annotation file.
-	genesFile=cfg.home+'/docs/hg19/hg19_ensembl_genes.txt' # Gene annotation file.
-	sizesFile=cfg.home+'/docs/hg19/hg19.sizes' # Genome sizes file. 
-	snoRNAindex=cfg.home+'/docs/hg19/snoRNA_reference/sno_coordinates_hg19_formatted.bed' # snoRNA coordinate file.
-	tRNAindex=cfg.home+'/docs/hg19/trna/tRNA_hg19'  # this is now CCA tailed
-	geneStartStopRepo=cfg.home+'/docs/hg19/all_genes.txt'
-	geneStartStopRepoBed = cfg.home+'/docs/hg19/hg19_ensembl_genes_BED6.bed'
+	index=cfg.home + '/docs/GRCh38/GRCh38_STAR' # bt2 index for mapping.
+	index_tag='GRCh38' # Name of bt2 index.
+	genomeFile=cfg.home+'/docs/GRCh38/GRCh38.sizes' # Genome file for bedGraph, etc.
+	blacklistregions=cfg.home+'/docs/GRCh38/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
+	repeatregions=cfg.home+'/docs/GRCh38/GRCh38_repeatMasker.bed' # Repeat masker.
+	geneAnnot=glob.glob(cfg.home+'/docs/GRCh38/gene_types/*') # List of genes by type.
+	miRNAmasker=cfg.home+'/docs/GRCh38/miR_sort_clean.bed' # miRNA masker file.
+	fivePUTRBed=cfg.home+'/docs/GRCh38/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	threePUTRBed=cfg.home+'/docs/GRCh38/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	exonBed=cfg.home+'/docs/GRCh38/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
+	utrFile=cfg.home+'/docs/GRCh38/UTR_annotation.txt' # UTR annotation file.
+	genesFile=cfg.home+'/docs/GRCh38/GRCh38_ensGene_76.txt' # Gene annotation file.
+	sizesFile=cfg.home+'/docs/GRCh38/GRCh38.sizes' # Genome sizes file. 
+	snoRNAindex=cfg.home+'/docs/GRCh38/snoRNA_coordinates.bed' # snoRNA coordinate file.
+	tRNAindex=cfg.home+'/docs/GRCh38/trna/tRNA_hg19'  # this is now CCA tailed
+	geneStartStopRepo=cfg.home+'/docs/GRCh38/all_genes.txt'
+	geneStartStopRepoBed = cfg.home+'/docs/GRCh38/genes_BED6.bed'
 elif org == 'mouse':
-	repeat_index=cfg.home + '/docs/mm9/repeat/rep_spaced' # bt2 index for repeat RNA.
-	repeatGenomeBuild=cfg.home+'/docs/mm9/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
-	repeatAnnotation=cfg.home+'/docs/mm9/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
-	retro_index=cfg.home+'/docs/mm9/retroviral/'
+	repeat_index=cfg.home + '/docs/GRCm38/repeat/rep_spaced' # bt2 index for repeat RNA.
+	repeatGenomeBuild=cfg.home+'/docs/GRCm38/repeat/Mm_repeatRNA_spaced.fa' # Sequence of repeat index.
+	repeatAnnotation=cfg.home+'/docs/GRCm38/repeat/Mm_repeatIndex_spaced_positions.txt' # Repeat annotation file.
+	endoVirus_index=cfg.home+'/docs/GRCm38/retroviral/'
+	exoVirus_index=cfg.home+'/docs/viral/'
 	start18s=4007
 	end18s=5876
 	start5s=6877
@@ -187,24 +186,23 @@ elif org == 'mouse':
 	start28s=8123
 	end28s=12836
 	rRNAend=13401
-	index=cfg.home + '/docs/mm9/mm9/mm9' # bt2 index for mapping.
-	index_tag='mm9' # Name of bt2 index.
-	genomeFile=cfg.home+'/docs/mm9/mm9.sizes' # Genome file for bedGraph, etc.
-	genomeForCLIPper='-smm9' # Parameter for CLIPper.
-	blacklistregions=cfg.home+'/docs/mm9/mm9-blacklist.bed' # Blacklist masker.
-	repeatregions=cfg.home+'/docs/mm9/Mm_mm9_repeatMasker_formatted.bed' # Repeat masker.
-	geneAnnot=glob.glob(cfg.home+'/docs/mm9/genes_types/*') # List of genes by type. 
-	miRNAmasker=cfg.home+'/docs/mm9/mm9_miRNA.bed' # miRNA masker file.
-	fivePUTRBed=cfg.home+'/docs/mm9/mm9_5pUTR.bed' # UTR annotation file.
-	threePUTRBed=cfg.home+'/docs/mm9/mm9_3pUTR.bed' # UTR annotation file. 
-	exonBed=cfg.home+'/docs/mm9/mm9_exons.bed' # UTR annotation file. 
-	utrFile=cfg.home+'/docs/mm9/mm9_ensembl_UTR_annotation.txt' # UTR annotation file. 
-	genesFile=cfg.home+'/docs/mm9/mm9_ensembl_genes.txt' # Gene annotation file. 
-	sizesFile=cfg.home+'/docs/mm9/mm9.sizes' # Genome sizes file. 
-	snoRNAindex=cfg.home+'/docs/mm9/snoRNA_reference/mm9_sno_coordinates_formatted_types.bed' # snoRNA coordinate file. 
-	tRNAindex=cfg.home+'/docs/mm9/tRNA/tRNA_mm9'  # this is now CCA tailed
-	geneStartStopRepo=cfg.home+'/docs/mm9/all_genes.txt'
-	geneStartStopRepoBed = cfg.home+'/docs/mm9/mm9_ensembl_genes_BED6.bed'
+	index=cfg.home + '/docs/GRCm38/GRCm38_STAR' # bt2 index for mapping.
+	index_tag='GRCm38' # Name of bt2 index.
+	genomeFile=cfg.home+'/docs/GRCm38/GRCm38.sizes' # Genome file for bedGraph, etc.
+	blacklistregions=cfg.home+'/docs/GRCm38/mm9-blacklist.bed' # Blacklist masker.
+	repeatregions=cfg.home+'/docs/GRCm38/GRCm38_repeatMasker.bed' # Repeat masker.
+	geneAnnot=glob.glob(cfg.home+'/docs/GRCm38/gene_types/*') # List of genes by type. 
+	miRNAmasker=cfg.home+'/docs/GRCm38/miRNA_coordinates.bed' # miRNA masker file.
+	fivePUTRBed=cfg.home+'/docs/GRCm38/5UTR.bed' # UTR annotation file.
+	threePUTRBed=cfg.home+'/docs/GRCm38/3UTR.bed' # UTR annotation file. 
+	exonBed=cfg.home+'/docs/GRCm38/exons.bed' # UTR annotation file. 
+	utrFile=cfg.home+'/docs/GRCm38/UTR_annotation.txt' # UTR annotation file. 
+	genesFile=cfg.home+'/docs/GRCm38/GRCm38_ensGene.txt' # Gene annotation file. 
+	sizesFile=cfg.home+'/docs/GRCm38/GRCm38.sizes' # Genome sizes file. 
+	snoRNAindex=cfg.home+'/docs/GRCm38/snoRNA_coordinates.bed' # snoRNA coordinate file. 
+	tRNAindex=cfg.home+'/docs/GRCm38/tRNA/tRNA_mm9'  # this is now CCA tailed
+	geneStartStopRepo=cfg.home+'/docs/GRCm38/all_genes.txt'
+	geneStartStopRepoBed = cfg.home+'/docs/GRCm38/genes_BED6.bed'
 
 ### start running pipeline ###
 now=datetime.datetime.now()
@@ -216,14 +214,13 @@ cfg.logOpen.write("Percentage of bases with > q: %s\n"%p)
 cfg.logOpen.write("5' bases to trim: %s\n'"%iCLIP5pBasesToTrim)
 cfg.logOpen.write("Threshold for minimum number of RT stops (repeat): %s samples with >= %s RT stops\n"%(minpass_rep, threshold_rep))
 cfg.logOpen.write("Threshold for minimum number of RT stops (nonrepeat): %s samples with >= %s RT stops\n"%(minpass_nr, threshold_nr))
-cfg.logOpen.write("Bases for expansion around conserved RT stops: %s\n"%expand)
 cfg.logOpen.write("\n\n\n")
 
 def main():
 
 	# 1. Trim and map
 	
-	log("\nProcessing sample {}".format(cfg.sampleName))
+	log("\nProcessing THis sample {}".format(cfg.sampleName))
 
 	if not args.trimmed: 
 		log("\nRemoving duplicates")
@@ -235,25 +232,32 @@ def main():
 	else: processed_reads = reads
 
 	log("\nRun mapping to indexes.")
-	(viral_sam, rep_sam, retro_sam, trna_sam, gen_sam) = run_mapping(processed_reads, viruses, repeat_index, retro_index, tRNAindex, star_index, star_ratio)
+	(viral_sam, rep_sam, endoVirus_sam, trna_sam, gen_sam) = run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, tRNAindex, star_index, star_ratio)
 
 	log("\nRun samtools.")
 	viral_bed = run_samtools(viral_sam, "-q {}".format(mapq))
 	rep_bed = run_samtools(rep_sam, "-q {}".format(mapq))
-	retro_bed = run_samtools(retro_sam)  # do more with this later, so no flags yet
+	endoVirus_bed = run_samtools(endoVirus_sam, "-q {}".format(mapq))  # do more with this later, so no flags yet
 	trna_bed = run_samtools(trna_sam, "-q {}".format(mapq))
 	gen_bed = run_samtools(gen_sam, "-q 255") # we're using STAR here so 255 signifies unique mapping
 
 	# 2.1 Process viral RT stops
-	if viruses:
+	if exoViruses:
 		log("\nViral RT stop isolation.")
-		virus_to_beds = defaultdict(lambda: [])
-		for v in viruses:
+		exoVirus_to_beds = defaultdict(lambda: [])
+		exoVirus_to_fa = defaultdict(lambda: [])
+		for v in exoViruses:
+			exoVirus_to_fa[v].append(exoVirus_index+v+".fasta")
+			log("virus: " + v)
 			for bed in viral_bed:
-				if 'mappedTo{}_'.format(v) in bed: virus_to_beds[v].append(bed)
+				log("bed: " + bed)
+				if 'mappedTo{}'.format(v) in bed:
+					log("ok") 
+					exoVirus_to_beds[v].append(bed)
 		
-		for v in virus_to_beds:
-			viral_bedfiles = virus_to_beds[v]
+		for v in exoVirus_to_beds:
+			log("check: " + v  )
+			viral_bedfiles = exoVirus_to_beds[v]
 			readsByStrand_v = separateStrands(viral_bedfiles)
 			negativeRTstop_v = isolate5prime(modifyNegativeStrand(readsByStrand_v[0])) 
 			positiveRTstop_v = isolate5prime(readsByStrand_v[1]) 
@@ -261,15 +265,17 @@ def main():
 			posMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_positivereads.mergedRT'.format(v)
 			negMerged = cfg.outfilepath + cfg.sampleName + '_viral_{}_negativereads.mergedRT'.format(v)
 			negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
-
-			mergeRT(positiveRTstop_v, posMerged, posMerged + '_stats', minpass_viral, threshold_viral, expand, '+')
-			mergeRT(negativeRTstop_v, negMerged, negMerged + '_stats', minpass_viral, threshold_viral, expand, '-')
+		
+			mergeRT(positiveRTstop_v, posMerged, posMerged + '_stats', minpass_viral, threshold_viral, '+')
+			mergeRT(negativeRTstop_v, negMerged, negMerged + '_stats', minpass_viral, threshold_viral, '-')
 			fileCat(negAndPosMerged, [posMerged, negMerged])
 			fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
-	# 2.2 Process repeat RT stops
-	log("\nRun repeat and blacklist region masker.")
-	
+		"""log("Making RT stop histograms")
+		filename = cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
+		viral_RT_stops(negAndPosMerged,filename)"""
+
+	# 2.2 Process repeat RT stops	
 	log("\nRepeat RT stop isolation.")
 	readsByStrand_rep=separateStrands(rep_bed)
 	negativeRTstop_rep=isolate5prime(modifyNegativeStrand(readsByStrand_rep[0])) 
@@ -280,14 +286,14 @@ def main():
 	negMerged = cfg.outfilepath+cfg.sampleName+'_repeat_negativereads.mergedRT'
 	negAndPosMerged = cfg.outfilepath+cfg.sampleName+'_threshold=%s'%threshold_rep+'_repeat_allreads.mergedRT.bed'
 	
-	mergeRT(positiveRTstop_rep, posMerged, posMerged + '_stats', minpass_rep, threshold_rep, expand, '+')
-	mergeRT(negativeRTstop_rep, negMerged, negMerged + '_stats', minpass_rep, threshold_rep, expand, '-')
+	mergeRT(positiveRTstop_rep, posMerged, posMerged + '_stats', minpass_rep, threshold_rep, '+')
+	mergeRT(negativeRTstop_rep, negMerged, negMerged + '_stats', minpass_rep, threshold_rep, '-')
 	fileCat(negAndPosMerged, [posMerged, negMerged])
 	fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
 	# 2.3 Process nonrepeat RT stops
 	log("Nonrepeat RT stop isolation.")
-	gen_norepeat_bed = remove_blacklist_retro(gen_bed, blacklistregions, repeatregions)
+	gen_norepeat_bed = remove_RepeatMaskerRegions(gen_bed, blacklistregions, repeatregions)
 	readsByStrand = separateStrands(gen_norepeat_bed)
 	negativeRTstop = isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
 	positiveRTstop = isolate5prime(readsByStrand[1]) 
@@ -296,126 +302,100 @@ def main():
 	posMerged = cfg.outfilepath+cfg.sampleName+'_%s_positivereads.mergedRT'%index_tag
 	negMerged = cfg.outfilepath+cfg.sampleName+'_%s_negativereads.mergedRT'%index_tag
 	negAndPosMerged = cfg.outfilepath+cfg.sampleName+'_threshold=%s'%threshold_nr+'_%s_allreads.mergedRT.bed'%index_tag
-	mergeRT(positiveRTstop, posMerged, posMerged + '_stats', minpass_nr, threshold_nr, expand, '+')
-	mergeRT(negativeRTstop, negMerged, negMerged + '_stats', minpass_nr, threshold_nr, expand, '-')
+	mergeRT(positiveRTstop, posMerged, posMerged + '_stats', minpass_nr, threshold_nr, '+')
+	mergeRT(negativeRTstop, negMerged, negMerged + '_stats', minpass_nr, threshold_nr, '-')
 	fileCat(negAndPosMerged,[posMerged,negMerged])
 	fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
 	# 3. Process genic RT stops
-	
 	log("\nGetting list of snoRNAs")
 	bedFile_sno = getSnoRNAreads(negAndPosMerged, snoRNAindex)
 	if os.stat(bedFile_sno).st_size > 0:
 		geneCounts_sno = countSnoRNAs(bedFile_sno) 
-		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_snoRNA'
+		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_snoRNA.txt'
 		geneCounts_sno.to_csv(outfilepathToSave)
 		
 	log("\nFiltering out snoRNAs and miRNAs")
 	sno_mirna_filtered_reads = filter_snoRNAs(negAndPosMerged, snoRNAindex, miRNAmasker)
 
-	if not cfg.run_clipper: 
-		log("\nAnnotating reads by gene")
-		CLIPPERlowFDR = annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed)
-		CLIPperGeneList = make_gene_list_from_annotation(CLIPPERlowFDR) # list of genes; commented out all things making this
-		# CLIPperOutBed  # cluster file; we're not making this, and this is not used anywhere else
-	else:
-		log("\nRunning CLIPper.")
-		CLIPPERout = runCLIPPER(sno_mirna_filtered_reads, genomeForCLIPper, genomeFile)
-		[CLIPPERlowFDR, CLIPperReadsPerCluster, CLIPperGeneList, CLIPperOutBed] = modCLIPPERout(sno_mirna_filtered_reads, CLIPPERout)
+	log("\nAnnotating reads by gene")
+	GeneReads = annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed)
+	GeneList = make_gene_list_from_annotation(GeneReads) # list of genes; commented out all things making this
 
 	log("Make bedGraphs")
-	
-	# pre-masking, pre-CLIPper/gene annotation bedgraph
-	bedGraphCLIPout = makeBedGraph(cleanBedFile(negAndPosMerged),genomeFile)
-	CLIPPERlowFDRcenters = getBedCenterPoints(negAndPosMerged, expand, namecol=3)  # unannotated so there is no name column
-	allLowFDRCentersBedGraph = makeBedGraph(cleanBedFile(CLIPPERlowFDRcenters), genomeFile)
-	
-	# post-masking, post-CLIPper/gene annotation bedgraph
-	bedGraphCLIPout = makeBedGraph(cleanBedFile(CLIPPERlowFDR),genomeFile)
-	CLIPPERlowFDRcenters = getBedCenterPoints(CLIPPERlowFDR, expand, namecol=9) # annotated so column 9 is the name of the gene
-	allLowFDRCentersBedGraph = makeBedGraph(cleanBedFile(CLIPPERlowFDRcenters), genomeFile)	
-	
-	# 4. Partition reads by gene type
-	
+	# pre-masking, gene annotation bedgraph
+	bedGraphout = makeBedGraph(cleanBedFile(negAndPosMerged),genomeFile)
+	allGeneCentersBedGraph = makeBedGraph(cleanBedFile(negAndPosMerged), genomeFile)
+
 	# - all
 	log("\nPartition reads by type.")
-	pathToGeneLists = getLowFDRGeneTypes(CLIPperGeneList,geneAnnot)
-	pathToReadLists = getLowFDRReadTypes(CLIPPERlowFDR,pathToGeneLists)
+	pathToGeneLists = getGeneTypes(GeneList,geneAnnot)
+	pathToReadLists = getReadTypes(GeneReads,pathToGeneLists)
 		
 	# - protein coding
 	geneRef=pd.DataFrame(pd.read_table(geneStartStopRepo))
-	proteinCodingReads = cfg.outfilepath + 'clipGenes_proteinCoding_LowFDRreads.bed'
-	proteinCodingReads_centered = getBedCenterPoints(proteinCodingReads, expand, namecol=9)
+	proteinCodingReads = cfg.outfilepath + 'clipGenes_proteinCoding_reads.bed'
+	proteinCodingReads_centered = getBedCenterPoints(proteinCodingReads, namecol=9)
 	geneCounts_pc = get_gene_counts(proteinCodingReads_centered) 
-	cfg.outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_proteinCoding'
+	cfg.outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_proteinCoding.txt'
 	geneCounts_pc.to_csv(cfg.outfilepathToSave)
 	
 	# - lncRNA
-	lincRNAReads = cfg.outfilepath + 'clipGenes_lincRNA_LowFDRreads.bed'
-	lincRNAReads_centered = getBedCenterPoints(lincRNAReads, expand, namecol=9)
+	lincRNAReads = cfg.outfilepath + 'clipGenes_lincRNA_reads.bed'
+	lincRNAReads_centered = getBedCenterPoints(lincRNAReads, namecol=9)
 	if os.stat(lincRNAReads_centered).st_size > 0:
 		geneCounts_linc = get_gene_counts(lincRNAReads_centered)
-		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_lincRNA'
+		outfilepathToSave = cfg.outfilepath + '/PlotData_ReadsPerGene_lincRNA.txt'
 		geneCounts_linc.to_csv(outfilepathToSave)
 
 		bf=pd.DataFrame(pd.read_table(lincRNAReads_centered,header=None))
-		bf.columns=['Chr','Start','Stop','CLIPper_name','Q','Strand']
-		bf['geneName']=bf['CLIPper_name'].apply(lambda x: x.split('_')[0])
+		bf.columns=['Chr','Start','Stop','name','Q','Strand']
+		bf['geneName']=bf['name'].apply(lambda x: x.split('_')[0])
 		merge=pd.merge(geneRef,bf,left_on='Ensembl Gene ID',right_on='geneName')
 		ncRNA_startStop=merge[['Ensembl Gene ID','Gene Start (bp)','Gene End (bp)','Start','Stop','Strand']]
 		outfilepathToSave = lincRNAReads_centered.replace(".bed",".geneStartStop")
 		ncRNA_startStop.to_csv(outfilepathToSave)
 
 	# - other
-	remaining = [f for f in glob.glob(cfg.outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
+	remaining = [f for f in glob.glob(cfg.outfilepath+"*_reads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
 	countRemainingGeneTypes(remaining)
 
-	if cfg.run_clipper:
-		log("Get binding intensity around cluster centers.")
-		bedGraphCLIPin=makeBedGraph(sno_mirna_filtered_reads,genomeFile)
-		centerCoordinates=makeClusterCenter(CLIPperOutBed) 
-		getClusterIntensity(bedGraphCLIPin,centerCoordinates)
 
 	# 5. Process introns and UTRs
-	
 	log("\nIntron and UTR analysis.")
 	exonreads, intronreads, fivePreads, threePreads, cdsreads = extract_regions(proteinCodingReads_centered, fivePUTRBed, threePUTRBed, exonBed)
 
 	if os.stat(fivePreads).st_size > 0:
 		geneCounts_5p=get_gene_counts(fivePreads) 
-		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_5pUTR'
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_5pUTR.txt'
 		geneCounts_5p.to_csv(outfilepathToSave)
 
 	if os.stat(threePreads).st_size > 0:
 		geneCounts_3p=get_gene_counts(threePreads) 
-		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_3pUTR'
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_3pUTR.txt'
 		geneCounts_3p.to_csv(outfilepathToSave)
 
 	if os.stat(cdsreads).st_size > 0:
 		geneCounts_cds=get_gene_counts(cdsreads) 
-		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_CDS'
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_CDS.txt'
 		geneCounts_cds.to_csv(outfilepathToSave) 
 
 	if os.stat(exonreads).st_size > 0:
 		geneCounts_5p=get_gene_counts(exonreads) 
-		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_Exons'
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_Exons.txt'
 		geneCounts_5p.to_csv(outfilepathToSave)
 
 	if os.stat(intronreads).st_size > 0:
 		geneCounts_3p=get_gene_counts(intronreads) 
-		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_Introns'
+		outfilepathToSave=cfg.outfilepath+'/PlotData_ReadsPerGene_Introns.txt'
 		geneCounts_3p.to_csv(outfilepathToSave)
 
 	gene_binding_by_region()
+	isolateUniqueReads()
 
 	# 6. Analysis of gene bodies, CLIP binding sites (iCLIPro), tRNAs
-	
-	log("\nMake metagene.")
-	proteinBedGraph = makeBedGraph(proteinCodingReads_centered, genomeFile)
-	makeAvgGraph(proteinBedGraph, utrFile, genesFile, sizesFile)
-
 	log("\nncRNA gene body analysis.")
-	remaining=[f for f in glob.glob(cfg.outfilepath+"*_LowFDRreads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
+	remaining=[f for f in glob.glob(cfg.outfilepath+"*_reads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
 	for bedFile in remaining:
 		st_stop=getGeneStartStop(bedFile,geneRef)
 
@@ -426,7 +406,6 @@ def main():
 	trna_readlist = trna_isotype_count(trna_sam, minpass_rep, threshold_rep)
 
 	# 7. Repeat RNAs
-	
 	log("\nRecord repeat RNA.")
 	repeat_genome_bases,repeatAnnotDF=makeRepeatAnnotation(repeatGenomeBuild,repeatAnnotation)
 	repeatAnnotDF.set_index('Name',inplace=True,drop=False)
@@ -440,11 +419,15 @@ def main():
 		gene_hits=rep[(rep['RT_stop']<int(repeatAnnotDF.loc[ix,'IndexEnd']))&(rep['RT_stop']>int(repeatAnnotDF.loc[ix,'IndexStart']))]
 		gene_hits['Repeat_End']=repeatAnnotDF.loc[ix,'IndexEnd']
 		gene_hits['Repeat_Start']=repeatAnnotDF.loc[ix,'IndexStart']
-		outfilepathToSave=cfg.outfilepath + '/PlotData_RepeatRNAreads_%s'%repName
+		outfilepathToSave=cfg.outfilepath + '/PlotData_RepeatRNAreads_%s.txt'%repName
 		gene_hits.to_csv(outfilepathToSave)
-	
+
 	# 8. Plots
-	
+	log("Running Retroviral Mapping")
+	organism = "GRCh38" if org == "human" else "GRCm38"
+	cmd = "python fasticlip/retroviralMapping.py -n %s --%s" % (cfg.sampleName, organism)
+	os.system(cmd)
+
 	log("\nMake plots.")
 	import matplotlib
 	import commands
@@ -452,56 +435,56 @@ def main():
 
 	log("Making Figure 1")
 	fig1 = plt.figure(1)
-	plot_figure1(nsamp, reads, threshold_nr, index_tag)
+	plot_figure1(nsamp, reads, threshold_nr, index_tag, exoViruses, reads_files)
 	fig1.tight_layout()
-	fig1.savefig(cfg.outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig1.savefig(cfg.outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
 
 	log("Making Figure 2")
-	ensemblGeneAnnot = pd.DataFrame(pd.read_table(genesFile))
-	ensemblGeneAnnot = ensemblGeneAnnot.set_index('name') # Make ENST the index
-
 	fig2 = plt.figure(2)
-	plt.subplot2grid((2,4),(0,0),colspan=4)
-	plot_mRNAgeneBodyDist()
-	plot_geneBodyPartition(ensemblGeneAnnot)
+	plot_repeatRNA(repeatGenomeBuild)
 	fig2.tight_layout()
-	fig2.savefig(cfg.outfilepath+'Figure2.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-	fig2.savefig(cfg.outfilepath+'Figure2.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig2.savefig(cfg.outfilepath+'Figure2a.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+       	plt.cla()
+        plt.clf()
 
 	log("Making Figure 3")
 	fig3 = plt.figure(3)
-	plot_repeatRNA(repeatGenomeBuild)
+	plot_rDNA(start18s, end18s, start5s, end5s, start28s, end28s, rRNAend)
 	fig3.tight_layout()
-	fig3.savefig(cfg.outfilepath+'Figure3.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-	fig3.savefig(cfg.outfilepath+'Figure3.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig3.savefig(cfg.outfilepath+'Figure3a.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+       	plt.cla()
+        plt.clf()
 
 	log("Making Figure 4")
-	fig4 = plt.figure(4)
-	plot_rDNA(start18s, end18s, start5s, end5s, start28s, end28s, rRNAend)
-	fig4.tight_layout()
-	fig4.savefig(cfg.outfilepath+'Figure4.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-	fig4.savefig(cfg.outfilepath+'Figure4.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	if os.stat(bedFile_sno).st_size > 0:
+		fig4 = plt.figure(4)
+		plot_snorna(bedFile_sno)
+		fig4.tight_layout()
+		fig4.savefig(cfg.outfilepath+'Figure4a.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5, fontsize = 5)
+		plot_snorna_type()
+	else:
+		log("No snoRNA reads; not making Figure 4")
+       	plt.cla()
+        plt.clf()
 
 	log("Making Figure 5")
-	if os.stat(bedFile_sno).st_size > 0:
-		fig5 = plt.figure(5)
-		plot_snorna(bedFile_sno)
-		fig5.tight_layout()
-		fig5.savefig(cfg.outfilepath+'Figure5.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-		fig5.savefig(cfg.outfilepath+'Figure5.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
-	else:
-		log("No snoRNA reads; not making Figure 5")
-		
-	log("Making Figure 6")
 	st_stopFiles = glob.glob(cfg.outfilepath+"*.geneStartStop")
 	st_stopFiles = [f for f in st_stopFiles if 'rRNA' not in f]
-	fig6 = plt.figure(6)
+	fig5 = plt.figure(5)
 	plot_ncrnas(st_stopFiles, expand)
-	fig6.tight_layout()
-	fig6.savefig(cfg.outfilepath+'Figure6.png',format='png',bbox_inches='tight',dpi=150,pad_inches=0.5)
-	fig6.savefig(cfg.outfilepath+'Figure6.pdf',format='pdf',bbox_inches='tight',dpi=150,pad_inches=0.5)
+	fig5.tight_layout()
+	fig5.savefig(cfg.outfilepath+'Figure5.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
 
-	clean_up()
+	log("Making Figure 6")
+	plotTopEndo()
+
+        log("Making Figure 7")
+        if exoViruses:
+                for v in exoVirus_to_beds:
+                        negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
+                        filename = cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
+                        viral_RT_stops(negAndPosMerged,filename, exoVirus_to_fa[v])
+	#clean_up()
 	cfg.logOpen.close()
 
 if __name__ == "__init__":
