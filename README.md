@@ -29,6 +29,8 @@ Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.f
 
 Example: `fasticlip -i rawdata/example_Hmhur_R1.fastq rawdata/example_Hmhur_R2.fastq --GRCh38 -s docs/GRCh38/GRCh38_STAR/ -n Hmhur -o results`
 
+Note that the current pipeline is compatible with only GRCh38 (human) and GRCm38 (mouse) assemblies. This is due to a tailored set of annotations used in the pipeline. We will release details of generating annotation files for other genomes shortly in future. 
+
 ### Required arguments
 
   flag | description
@@ -69,14 +71,19 @@ Installation instructions
 3. Run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
 4. Run `sudo python setup.py install`. If you do not have sudo privileges, run `python setup.py install --user` or `python setup.py install --prefix=<desired directory>`.
 5. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
-6. Try running the following command: 
-  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --GRCm38 -s docs/GRCm38/GRCm38_STAR/ -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
-
-You can `fasticlip` from outside its installation directory. To do this, add the following lines to the end of your `.bash_profile` script:
+6. Add the following lines to your ~/.bashrc and ~/.bash_profile:
 
 	export FASTICLIP_PATH=<your absolute FAST-iCLIP installation path>
 	export PATH=$FASTICLIP_PATH:$PATH
+
+	export FASTICLIP_PATH=~/.local/bin/
+	export PATH=$FASTICLIP_PATH:$PATH
+
 Save the file, then run `source ~/.bash_profile`.
+
+7. Try running the following command: 
+  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --GRCm38 -s docs/GRCm38/GRCm38_STAR/ -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
+
 
 Dependencies
 ------------
@@ -87,7 +94,7 @@ The version numbers listed have been tested successfully. There can be difficult
 - matplotlib 1.5: http://matplotlib.org/
 - Pandas 0.18.1: http://pandas.pydata.org/
 - Bowtie 2.1: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
-- STAR 2.4.0: https://github.com/alexdobin/STAR
+- STAR 2.4.2a: https://github.com/alexdobin/STAR/tree/STAR_2.4.2a (The annotations work only with this version)
 - bedtools 2.25.0: http://bedtools.readthedocs.org/en/latest/
 - FASTX-Tookit 0.0.13: http://hannonlab.cshl.edu/fastx_toolkit/
 - matplotlib-venn 0.11.4: https://pypi.python.org/pypi/matplotlib-venn
