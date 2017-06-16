@@ -68,7 +68,7 @@ Installation instructions
 4. Run `sudo python setup.py install`. If you do not have sudo privileges, run `python setup.py install --user` or `python setup.py install --prefix=<desired directory>`.
 5. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 6. Try running the following command: 
-  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -s <location of your STAR index> -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
+  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --mm9 -s docs/GRCm38/GRCm38_STAR/ -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
 
 You can `fasticlip` from outside its installation directory. To do this, add the following lines to the end of your `.bash_profile` script:
 
