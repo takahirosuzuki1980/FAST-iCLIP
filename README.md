@@ -26,6 +26,7 @@ Usage [*** UPDATE ***]
 `fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--GRCh38 | --GRCm38] -s STAR_INDEX -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-tv EXOVIRUS_THRESHOLD_RULE] [-sr STAR_RATIO] [-bm BOWTIE_MAPQ] [-q Q] [-p P] [-l L] [--verbose]`
 
 Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --GRCm38 -s docs/GRCm38/GRCm38_STAR/ -n MMhur -o results`
+
 Example: `fasticlip -i rawdata/example_Hmhur_R1.fastq rawdata/example_Hmhur_R2.fastq --GRCh38 -s docs/GRCh38/GRCh38_STAR/ -n Hmhur -o results`
 
 ### Required arguments
