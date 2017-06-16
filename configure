@@ -30,12 +30,6 @@ else
 	echo >&2 "iCLIPro must be installed.  Aborting."; exit 1
 fi
 
-if $(type clipper >/dev/null 2>&1); then	
-	echo "CLIPper installed"
-else
-	echo >&2 "CLIPper must be installed.  Aborting."; exit 1
-fi
-
 if $(type bedtools >/dev/null 2>&1); then
 	echo "bedtools installed"
 else 
