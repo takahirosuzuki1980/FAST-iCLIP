@@ -3,9 +3,9 @@ FAST-iCLIP
 
 Fully Automated and Standardized iCLIP (FAST-iCLIP) is a fully automated tool to process iCLIP data. Please cite the following paper:
 
-`Flynn RA, Martin L, Spitale RC, Do BT, Sagan SM, Zarnegar B, Qu K, Khavari PA, Quake SR, Sarnow P, Chang HY (2014). Dissecting non-coding and pathogen RNA-protein interactomes. RNA 21:1, 1-9. doi:10.1261/rna.047803.114`
+`Zarnegar B, Flynn RA, Shen Y, Do BT, Chang HY, Khavari PA. Ultraefficient irCLIP pipeline for characterization for protein-RNA interactions. Nature Methods (2016)`
 
-This package contains two main sets of tools: an executable called `fasticlip` to run iCLIP on human and mouse data, and several iPython notebooks to process iCLIP data from viral genomes.
+This package contains two main sets of tools: an executable called `fasticlip` to run iCLIP on human and mouse data, and several (possibly deprecated) iPython notebooks to process iCLIP data from viral genomes.
 
 The following README will focus mainly on `fasticlip`. The pdf in the repository contains further instructions for using the iPython notebooks.
 
@@ -80,16 +80,14 @@ Save the file, then run `source ~/.bash_profile`.
 Dependencies
 ------------
 
-The version numbers listed have been tested successfully. There are known difficulties if you choose to run updated versions of some of these dependencies (e.g. CLIPper).
+The version numbers listed have been tested successfully. There can be difficulties if you choose to run updated versions of some of these dependencies.
 
-- Python 2.7: https://www.python.org/download/releases/2.7/
-- iPython 4.0: http://ipython.org/install.html (optional)
+- Python 2.7: https://www.python.org/download/releases/2.7/ (Important: does not work with Python3)
 - matplotlib 1.5: http://matplotlib.org/
 - Pandas 0.18.1: http://pandas.pydata.org/
 - Bowtie 2.1: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
 - STAR 2.4.0: https://github.com/alexdobin/STAR
 - bedtools 2.25.0: http://bedtools.readthedocs.org/en/latest/
-- CLIPper 0.2.0: https://github.com/YeoLab/clipper/wiki/CLIPper-Home (now optional) (Note: FAST-iCLIP does not work with versions of CLIPper > 0.2.0)
 - FASTX-Tookit 0.0.13: http://hannonlab.cshl.edu/fastx_toolkit/
 - matplotlib-venn 0.11.4: https://pypi.python.org/pypi/matplotlib-venn
 - iCLIPro 0.1.1: http://www.biolab.si/iCLIPro/doc/
