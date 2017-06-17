@@ -73,10 +73,8 @@ Installation instructions
 5. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 6. Add the following lines to your ~/.bashrc and ~/.bash_profile:
 
-	export FASTICLIP_PATH=<your absolute FAST-iCLIP installation path>
-	export PATH=$FASTICLIP_PATH:$PATH
-
 	export FASTICLIP_PATH=~/.local/bin/
+	
 	export PATH=$FASTICLIP_PATH:$PATH
 
 Save the file, then run `source ~/.bash_profile`.
