@@ -144,13 +144,13 @@ def run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, trna
 		
 		log("Mapping {} to endovirus".format(infastq))
 		#cmd = "bowtie2 -p 8 -x {} {} --un {} -S {} > {} 2>&1".format(endoVirus_index, rep_unmapped, endoVirus_unmapped, endoVirus_mapped, endoVirus_mapped + '_stats.txt')
-		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {} --outReadsUnmapped Fastx".format(endoVirus_index, rep_unmapped, genome_star_prefix + "_endoVirus", star_ratio)
+		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndRemove --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {} --outReadsUnmapped Fastx".format(endoVirus_index, rep_unmapped, genome_star_prefix + "_endoVirus", star_ratio)
 
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
 		os.system("mv {} {}".format(genome_star_prefix + "_endoVirusAligned.out.sam", endoVirus_mapped))
 		os.system("mv {} {}".format(genome_star_prefix + "_endoVirusUnmapped.out.mate1", endoVirus_unmapped))
-		
+	
 		# getting minus mapped strands for endovirus
 		"""cmd = "samtools view -f 16 -Sb {} -o {}".format(endoVirus_mapped, genome_star_prefix + "_endoVirusAligned_minus.bam")
 		os.system(cmd)
@@ -166,7 +166,7 @@ def run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, trna
 		
 		#cmd = "bowtie2 -p 8 -x {} {} -S {} > {} 2>&1".format(genome_index, trna_unmapped, genome_mapped, genome_mapped + '_stats.txt')
 		log("Mapping {} to genome".format(infastq))
-		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndKeep --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {}".format(star_index, trna_unmapped, genome_star_prefix, star_ratio)
+		cmd = "STAR --genomeDir {} --runThreadN 8 --genomeLoad LoadAndRemove --readFilesIn {} --outFileNamePrefix {} --alignEndsType EndToEnd --outFilterMismatchNoverLmax {}".format(star_index, trna_unmapped, genome_star_prefix, star_ratio)
 		if cfg.verbose: log(cmd)
 		os.system(cmd)
 		os.system("mv {} {}".format(genome_star_output, genome_mapped))

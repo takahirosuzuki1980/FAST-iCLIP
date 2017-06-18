@@ -484,7 +484,6 @@ def main():
                         negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
                         filename = cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
                         viral_RT_stops(negAndPosMerged,filename, exoVirus_to_fa[v])
-	#clean_up()
 	cfg.logOpen.close()
 
 if __name__ == "__init__":

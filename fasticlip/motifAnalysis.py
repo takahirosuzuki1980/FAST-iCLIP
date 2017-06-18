@@ -14,12 +14,12 @@ csv.register_dialect("textdialect", delimiter='\t')
 
 ### Parsing arguments ###
 
-parser = argparse.ArgumentParser(description="motifAnalysis.py: use this to look for motifs in CLIP data", epilog="Example: python motifAnalysis.py -n ddx3wt --hg19 -l 12,14 -f 15 -m 25")
+parser = argparse.ArgumentParser(description="motifAnalysis.py: use this to look for motifs in CLIP data", epilog="Example: python motifAnalysis.py -n ddx3wt --GRCh38 -l 12,14 -f 15 -m 25")
 group = parser.add_mutually_exclusive_group()
 parser.add_argument('-n', metavar='SAMPLENAME', help="Sample name; name of folder inside results/", required=True)
 parser.add_argument('-p', metavar='PREFIX', help="Prefix for folders where motifs will be stored", default="homer")
-group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
-group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
+group.add_argument('--GRCh38', action='store_true', help="required if your CLIP is from human")
+group.add_argument('--GRCm38', action='store_true', help="required if your CLIP is from mouse")
 parser.add_argument('-l', metavar='LENGTHS', help="Length(s) of motifs desired; separated by a ','. Default is '6,8,10,12'.", default="6,8,10,12")
 parser.add_argument('-f', metavar='FILTER_WINDOW', help="Distance over which RT stops cannot overlap. Default is 10.", default=10)
 parser.add_argument('-m', metavar='MOTIF_WINDOW', help="Size of window to find motifs around RT stop. Default is 20.", default=20)
@@ -30,14 +30,14 @@ parser.add_argument('-e', metavar='END', type=int, help="Right end of window. De
 
 # organism
 args = parser.parse_args()
-if not (args.hg19 or args.mm9):
-	print "Error: must include --hg19 or --mm9. Exiting."
+if not (args.GRCh38 or args.GRCm38):
+	print "Error: must include --GRCh38 or --GRCm38. Exiting."
 	exit()
-if args.hg19: 
-	org = 'hg19' 
+if args.GRCh38: 
+	org = 'GRCh38' 
 	orgname='human'
 else: 
-	org = 'mm9'
+	org = 'GRCm38'
 	orgname = 'mouse'
 
 sampleName=args.n #name of folder
@@ -71,7 +71,7 @@ def grep(pattern,filein):
 	return r
 
 def extractClusters(geneList,allRT, filter_win):
-	# Usage: Extract a set of CLIPper RT stops based on gene name
+	# Usage: Extract a set of  RT stops based on gene name
 	# Input: Gene list
 	# Output: RT stops in those genes
 	# BD Update 12/13/2014: only unique RT stops
@@ -218,8 +218,8 @@ def customGeneExtraction(outfilepath,startIndex,endIndex):
 def plotExtractedRegion(sample,plotNum,start,end):
 	outfilepath=os.getcwd() + '/results/%s/'%sample
 	# Bed file with protein coding reads
-	filteredProteinCoding = outfilepath+'/rawdata/clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved.bed'
-	averageGraph=outfilepath+'/rawdata/clipGenes_proteinCoding_LowFDRreads_centerCoord_snoRNAremoved_miRNAremoved_cleaned_sorted_UTRs_scaled_cds200_abt0_averageGraph.txt'	
+	filteredProteinCoding = outfilepath+'/rawdata/clipGenes_proteinCoding_reads_centerCoord_snoRNAremoved_miRNAremoved.bed'
+	averageGraph=outfilepath+'/rawdata/clipGenes_proteinCoding_reads_centerCoord_snoRNAremoved_miRNAremoved_cleaned_sorted_UTRs_scaled_cds200_abt0_averageGraph.txt'	
 	# Number of columns 
 	avgGraphCols=600
 	avgGraphData=np.loadtxt(averageGraph,skiprows=1,dtype='float',usecols=range(1,avgGraphCols+1))
@@ -248,22 +248,22 @@ def plotExtractedRegion(sample,plotNum,start,end):
 # --------------
 outfilepath=os.getcwd()+'/results/%s/'%sampleName
 
-clipperClusters = glob.glob(outfilepath + '/bedfiles/*threshold*mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters_lowFDRreads_cleaned_sorted.bed')
-if not clipperClusters:
-	clipperClusters = glob.glob(outfilepath + '/bedfiles/*threshold*mergedRT_snoRNAremoved_miRNAremoved_ens_annotated.bed')[0]
+Clusters = glob.glob(outfilepath + '/bedfiles/*threshold*mergedRT_snoRNAremoved_miRNAremoved_CLIP_clusters_reads_cleaned_sorted.bed')
+if not Clusters:
+	Clusters = glob.glob(outfilepath + '/bedfiles/*threshold*mergedRT_snoRNAremoved_miRNAremoved_ens_annotated.bed')[0]
 else:
-	clipperClusters = clipperClusters[0]
+	Clusters = Clusters[0]
 	
-print "Cluster file to process: {}".format(clipperClusters)
+print "Cluster file to process: {}".format(Clusters)
 
 if not args.window:
 	# regions we want to look at
 	UTRcluster_names = ['5p', '3p', 'cds', 'introns', 'exons']
-	UTRclusters = ["clipGenes_proteinCoding_LowFDRreads_centerCoord_" + x + '.bed' for x in UTRcluster_names]
+	UTRclusters = ["clipGenes_proteinCoding_reads_centerCoord_" + x + '.bed' for x in UTRcluster_names]
 
 	# Run HOMER on all clusters
-	filteredRT = clipperClusters[:-4] + "_rtstops_summits.bed"
-	proc = subprocess.Popen(["perl","bin/filterSummit.pl", clipperClusters, filteredRT, str(filter_win)])
+	filteredRT = Clusters[:-4] + "_rtstops_summits.bed"
+	proc = subprocess.Popen(["perl","bin/filterSummit.pl", Clusters, filteredRT, str(filter_win)])
 	proc.communicate()
 	runHOMER(filteredRT, lengths, homer_win, args.p + '_allReads')
 	
@@ -292,5 +292,5 @@ else:
 
 	# Run HOMER
 	outfilepath=os.getcwd()+'/results/%s/'%sampleName
-	clusters=extractClusters(pathToCustomFile,clipperClusters)
+	clusters=extractClusters(pathToCustomFile,Clusters)
 	runHOMER(clusters,lengths,'rawdata/homer_custom')

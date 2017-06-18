@@ -1,6 +1,7 @@
-# retroviralMapping.py
+
+# endoVirusMapping.py
 # 1/8/14
-# Retroviral_mapping.ipynb, in script form
+# endoVirus_mapping.ipynb, in script form
 
 import sys, os, re, cmath, math, glob, subprocess, csv, matplotlib, argparse
 import numpy as np
@@ -16,32 +17,32 @@ csv.register_dialect("textdialect", delimiter='\t')
 
 ### Parsing arguments ###
 
-parser = argparse.ArgumentParser(description="retroviralMapping.py: a script to map raw CLIP data to retroviral sequences", epilog="Example: python retroviralMapping.py -n ddx3wt --hg19")
+parser = argparse.ArgumentParser(description="endoVirusMapping.py: a script to map raw CLIP data to endoVirus sequences", epilog="Example: python endoVirusMapping.py -n ddx3wt --GRCh38")
 group = parser.add_mutually_exclusive_group()
 parser.add_argument('-n', metavar='SAMPLENAME', help="Sample name; name of folder inside results/", required=True)
-group.add_argument('--hg19', action='store_true', help="required if your CLIP is from human")
-group.add_argument('--mm9', action='store_true', help="required if your CLIP is from mouse")
+group.add_argument('--GRCh38', action='store_true', help="required if your CLIP is from human")
+group.add_argument('--GRCm38', action='store_true', help="required if your CLIP is from mouse")
 parser.add_argument('-m', metavar='MAPQ', type=int, help="Minimum MAPQ score allowed. Default is 42.", default=42)
 
 # organism
 args = parser.parse_args()
-if not (args.hg19 or args.mm9):
-	print "Error: must include --hg19 or --mm9. Exiting."
+if not (args.GRCh38 or args.GRCm38):
+	print "Error: must include --GRCh38 or --GRCm38. Exiting."
 	exit()
-if args.hg19: 
-	org = 'hg19' 
+if args.GRCh38: 
+	org = 'GRCh38' 
 	orgname='human'
-	retroIndex='docs/hg19/retroviral/retro_spaced'
-	retro_pos='docs/hg19/retroviral/Hs_retroviralIndex_spaced_positions.txt'
-	retro_genome='docs/hg19/retroviral/Hs_retroviralIndex_spaced.fa'
+	retroIndex='docs/GRCh38/retroviral/retro_spaced'
+	retro_pos='docs/GRCh38/retroviral/Hs_retroviralIndex_spaced_positions.txt'
+	retro_genome='docs/GRCh38/retroviral/Hs_retroviralIndex_spaced.fa'
 else: 
-	org = 'mm9'
+	org = 'GRCm38'
 	orgname = 'mouse'
-	retroIndex='docs/mm9/retroviral/retro_spaced'
-	retro_pos='docs/mm9/retroviral/Mm_retroviralIndex_spaced_positions.txt'
-	retro_genome='docs/mm9/retroviral/Mm_retroviralIndex_spaced.fa'
+	retroIndex='docs/GRCm38/retroviral/retro_spaced'
+	retro_pos='docs/GRCm38/retroviral/Mm_retroviralIndex_spaced_positions.txt'
+	retro_genome='docs/GRCm38/retroviral/Mm_retroviralIndex_spaced.fa'
 
-mapq = args.m
+mapq = str(args.m)
 sampleName=args.n #name of folder
 if not glob.glob("results/" + sampleName):
 	print "Folder %s does not exist. Exiting." %sampleName
@@ -49,7 +50,7 @@ if not glob.glob("results/" + sampleName):
 
 # Get raw data
 global outfilepath
-outfilepath=os.getcwd() + '/results/%s/'%sampleName
+outfilepath=os.getcwd() + '/results/%s'%sampleName
 print outfilepath
 
 def modifyName(filepath,newTag):
@@ -62,7 +63,7 @@ def modifyName(filepath,newTag):
     return newName
 
 def runBowtie(fastqFiles):
-    # Useage: Short read mapping to reference (hg19).
+    # Useage: Short read mapping to reference (GRCh38).
     # Input: Fastq files of replicates (not paired end).
     # Output: Path to samfile for each read.
     program = 'bowtie2'
@@ -72,7 +73,7 @@ def runBowtie(fastqFiles):
     for infastq in fastqFiles:
         print infastq
 
-        outfile = modifyName(infastq,"mappedToRetroviral.sam")
+        outfile = modifyName(infastq,"mappedToendoVirus.sam")
         
         print "Input file:"
         print infastq 
@@ -90,10 +91,8 @@ def runBowtie(fastqFiles):
     return mappedReads
 
 # Run Bowtie
-readsForRetroviralmapping=glob.glob(outfilepath+"/rawdata/*_notMappedToTrna.fastq")
-mappedReads = runBowtie(readsForRetroviralmapping)
-#print readsForRetroviralmapping
-
+readsForendoVirusmapping=glob.glob(outfilepath+"/*_notMappedToTrna.fastq")
+mappedReads = runBowtie(readsForendoVirusmapping)
 
 def runSamtools(samfiles, mapq):
     # Useage: Samfile processing.
@@ -126,7 +125,7 @@ def runSamtools(samfiles, mapq):
     return outBedFiles
 
 # Run Samtools
-mappedReads=glob.glob(outfilepath+"/rawdata/*mappedToRetroviral.sam")
+mappedReads=glob.glob(outfilepath+"/*mappedToendoVirus.sam")
 print "Process mapped data"  
 mappedBedFiles=runSamtools(mappedReads, mapq)
 
@@ -155,7 +154,7 @@ def readBed(path):
     bedFile['Start']=bedFile['Start'].astype(int)
     return bedFile
 
-mappedBed=glob.glob(outfilepath+"/rawdata/*mappedToRetroviral_withDupes.bed")
+mappedBed=glob.glob(outfilepath+"/*mappedToendoVirus_withDupes.bed")
 bedR1=readBed(mappedBed[0])
 bedR2=readBed(mappedBed[1])
 
@@ -173,7 +172,7 @@ recordHits.fillna(0,inplace=True)
 recordHits.sort(['sum'],inplace=True,ascending=False)
 
 grZero=recordHits[recordHits['sum']>0]
-pathToSave=outfilepath + '/rawdata/retroviral_numReads.txt'
+pathToSave=outfilepath + '/endoVirus_numReads.txt'
 recordHits.to_csv(pathToSave,sep='\t')
 
 # - Evaluate consistency between replicates - 
@@ -183,34 +182,37 @@ def plotRepGraph():
       plt.scatter(recordHits['hits_r1']/bedR1.shape[0],recordHits['hits_r2']/bedR2.shape[0])
       plt.xticks(fontsize=5)
       plt.yticks(fontsize=5)
-      plt.xlabel('Normalized Hits / retroviral RNA (Rep1)',fontsize=5)
-      plt.ylabel('Normalized Hits / retroviral RNA (Rep2)',fontsize=5)
+      plt.xlabel('Normalized Hits / endoVirus RNA (Rep1)',fontsize=5)
+      plt.ylabel('Normalized Hits / endoVirus RNA (Rep2)',fontsize=5)
 
       plt.subplot(2,2,2)
       plt.scatter(np.log10(recordHits['hits_r1']),np.log10(recordHits['hits_r2']))
       plt.xticks(fontsize=5)
       plt.yticks(fontsize=5)
-      plt.xlabel('Log10 (Raw hits / retroviral RNA, Rep1)',fontsize=5)
-      plt.ylabel('Log10 (Raw hits / retroviral RNA, Rep2)',fontsize=5)
+      plt.xlabel('Log10 (Raw hits / endoVirus RNA, Rep1)',fontsize=5)
+      plt.ylabel('Log10 (Raw hits / endoVirus RNA, Rep2)',fontsize=5)
       return fig
 
-pp = PdfPages(outfilepath + '/figures/retroviral_RNA_rep_comparison.pdf')
+pp = PdfPages(outfilepath + '/endoVirus_RNA_rep_comparison.pdf')
 fig = plotRepGraph()
 pp.savefig(fig)
 pp.close()
 
 # Binning and a matrix
-ofile = open(outfilepath + '/rawdata/retroviral_RNA_bins.txt', 'w')
+ofile = open(outfilepath + '/endoVirus_RNA_bins.txt', 'w')
 writer = csv.writer(ofile, 'textdialect')
-
-for repName in grZero.index:
+#print "amin2"
+#for repName in grZero.index:
+for repName in recordHits.index:
 	# Hits
-	hits_r1=bedR1[(bedR1['Start']<int(repeatAnnotDF.loc[repName,'IndexEnd'])) & (bedR1['Start']>int(repeatAnnotDF.loc[repName,'IndexStart']))]
+    	hits_r1=bedR1[(bedR1['Start']<int(repeatAnnotDF.loc[repName,'IndexEnd'])) & (bedR1['Start']>int(repeatAnnotDF.loc[repName,'IndexStart']))]
 	hits_r2=bedR2[(bedR2['Start']<int(repeatAnnotDF.loc[repName,'IndexEnd'])) & (bedR2['Start']>int(repeatAnnotDF.loc[repName,'IndexStart']))]
+	
 	binSize=1
 	bins=range(repeatAnnotDF.loc[repName,'IndexStart'],repeatAnnotDF.loc[repName,'IndexEnd']+2,binSize) # Make sure bins are end coordinate inclusive
-	histr1,bins=np.histogram(hits_r1,bins=bins)
-	histr2,bins=np.histogram(hits_r2,bins=bins)
+	# amin
+	histr1,bins=np.histogram(hits_r1['Start'],bins=bins)
+	histr2,bins=np.histogram(hits_r2['Start'],bins=bins)
 	
 	# Histogram
 	numBins=100
@@ -219,15 +221,13 @@ for repName in grZero.index:
 	a=map(lambda x: float(x)*len(histr2)/numBins, range(numBins)) # convert my desired scale to the current scale		
 	hits_r2_bin = np.interp(a, range(len(histr2)), histr2)
 
-	hits_bin = list(hits_r1_bin + hits_r2_bin)
-	
+	hits_bin = list(hits_r2_bin)
 	outputRow = [repName]
 	outputRow.extend(hits_bin)
 	writer.writerow(outputRow)
 	
 ofile.close()
 
-os.system(outfilepath + '/rawdata/*.sam')
-
+os.system(outfilepath + '/*.sam')
 
 
