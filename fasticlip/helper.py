@@ -1248,7 +1248,7 @@ def plot_ncrnas(st_stopFiles, expand):
 
 #Streamline these three functions later.
 def viral_RT_stops(pathtofile, filename, exoV_index):
-        exoV_genome = np.genfromtxt(exoV_index[0],dtype='string')
+        exoV_genome = np.genfromtxt(exoV_index[0],dtype='string', usecols=np.arange(0,1434))
         exoV_genome_bases = exoV_genome[1]
 
 	pos_reads = []
