@@ -69,6 +69,7 @@ Installation instructions
 	- `git clone https://github.com/ChangLab/FAST-iCLIP.git` otherwise
 2. Type `cd FAST-iCLIP` to enter the folder.
 3. Run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
+3.1. Note that the configure will download a very large annotation file from Amazon that contains all necessary annotation files to run the pipeline. Please wait until all annotations are downloaded and extracted. No additional annotation file is needed. The annotations are compatible only with the tools specificed in the following.
 4. Run `sudo python setup.py install`. If you do not have sudo privileges, run `python setup.py install --user` or `python setup.py install --prefix=<desired directory>`.
 5. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 6. Add the following lines to your ~/.bashrc and ~/.bash_profile:
@@ -91,9 +92,9 @@ The version numbers listed have been tested successfully. There can be difficult
 - Python 2.7: https://www.python.org/download/releases/2.7/ (Important: does not work with Python3)
 - matplotlib 1.5: http://matplotlib.org/
 - Pandas 0.18.1: http://pandas.pydata.org/
-- Samtools 0.1.18: https://github.com/samtools/samtools/archive/0.1.18.tar.gz (not compatible with later samtools)
+- Samtools 0.1.18: https://github.com/samtools/samtools/archive/0.1.18.tar.gz (not compatible with later samtools, source for samtools is available in ~/dependencies)
 - Bowtie 2.1: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
-- STAR 2.4.2a: https://github.com/alexdobin/STAR/tree/STAR_2.4.2a (The annotations work only with this version)
+- STAR 2.4.2a: https://github.com/alexdobin/STAR/tree/STAR_2.4.2a (The annotations work only with this version,  source for STAR is available in ~/dependencies)
 - bedtools 2.25.0: http://bedtools.readthedocs.org/en/latest/
 - FASTX-Tookit 0.0.13: http://hannonlab.cshl.edu/fastx_toolkit/
 - matplotlib-venn 0.11.4: https://pypi.python.org/pypi/matplotlib-venn

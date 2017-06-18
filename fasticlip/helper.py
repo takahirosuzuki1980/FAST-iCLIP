@@ -375,10 +375,10 @@ def fileCat(destinationFile,fileList, sort=False):
 		os.system("rm -f {}".format(destinationFile + "_temp"))
 
 def RTcounts(RTfile):
-	posRT_R1=pd.DataFrame(pd.read_table(RTfile,index_col=None,header=None,sep='\t'))
-	posRT_R1.columns=['Chr','Start','Strand']
-	cts=posRT_R1.groupby(['Chr','Start']).size()
-	return cts
+        posRT_R1=pd.DataFrame(pd.read_table(RTfile,dtype={'0': np.str, '1': np.int64, '2': np.str}, index_col=None,header=None,sep='\t',low_memory=False))
+        posRT_R1.columns=['Chr','Start','Strand']
+        cts=posRT_R1.groupby(['Chr','Start']).size()
+        return cts
 
 def countPassed(x, n):
 	ct = 0
