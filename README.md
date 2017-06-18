@@ -68,8 +68,7 @@ Installation instructions
 	- `git clone git@github.com:ChangLab/FAST-iCLIP.git` if you use ssh authentication
 	- `git clone https://github.com/ChangLab/FAST-iCLIP.git` otherwise
 2. Type `cd FAST-iCLIP` to enter the folder.
-3. Run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data).
-3.1. Note that the configure will download a very large annotation file from Amazon that contains all necessary annotation files to run the pipeline. Please wait until all annotations are downloaded and extracted. No additional annotation file is needed. The annotations are compatible only with the tools specificed in the following.
+3. Run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data). Note that the configure will download a very large annotation file from Amazon that contains all necessary annotation files to run the pipeline. Please wait until all annotations are downloaded and extracted. No additional annotation file is needed. The annotations are compatible only with the tools specificed in the following.
 4. Run `sudo python setup.py install`. If you do not have sudo privileges, run `python setup.py install --user` or `python setup.py install --prefix=<desired directory>`.
 5. You should see three new folders inside `FAST-iCLIP`: `docs`, `rawdata`, and `results`.
 6. Add the following lines to your ~/.bashrc and ~/.bash_profile:
