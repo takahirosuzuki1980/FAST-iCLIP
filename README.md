@@ -91,6 +91,7 @@ The version numbers listed have been tested successfully. There can be difficult
 - Python 2.7: https://www.python.org/download/releases/2.7/ (Important: does not work with Python3)
 - matplotlib 1.5: http://matplotlib.org/
 - Pandas 0.18.1: http://pandas.pydata.org/
+- Samtools 0.1.18: https://github.com/samtools/samtools/archive/0.1.18.tar.gz (not compatible with later samtools)
 - Bowtie 2.1: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
 - STAR 2.4.2a: https://github.com/alexdobin/STAR/tree/STAR_2.4.2a (The annotations work only with this version)
 - bedtools 2.25.0: http://bedtools.readthedocs.org/en/latest/
