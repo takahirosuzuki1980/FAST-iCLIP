@@ -394,13 +394,13 @@ def main():
 	isolateUniqueReads()
 
 	# 6. Analysis of gene bodies, CLIP binding sites (iCLIPro), tRNAs
-	log("\nncRNA gene body analysis.")
-	remaining=[f for f in glob.glob(cfg.outfilepath+"*_reads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
-	for bedFile in remaining:
-		st_stop=getGeneStartStop(bedFile,geneRef)
-
-	log("\nRun iCLIPro.")
-	iclipro = run_iclipro(gen_sam)
+	###log("\nncRNA gene body analysis.")
+	###remaining=[f for f in glob.glob(cfg.outfilepath+"*_reads.bed") if 'lincRNA' not in f and 'proteinCoding' not in f and 'snoRNA' not in f]
+	###for bedFile in remaining:
+	###	st_stop=getGeneStartStop(bedFile,geneRef)
+        ###
+	###log("\nRun iCLIPro.")
+	###iclipro = run_iclipro(gen_sam)
 
 	log("\nRun tRNA isotype counting.")
 	trna_readlist = trna_isotype_count(trna_sam, minpass_rep, threshold_rep)
