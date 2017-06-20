@@ -86,7 +86,6 @@ def run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, trna
 	trna_sam = []
 	genome_sam = []
 	for infastq in processed_reads:
-	
 		# NAMES	
 		for v in exoViruses:
 			v_mapped = infastq.replace(".fastq", "_mappedTo{}.sam".format(v))
@@ -211,7 +210,7 @@ def run_iclipro(samfiles):
 		if cfg.verbose: log(cmd_1)
 		rt = os.system(cmd_1)
 		if rt != 0: log("iCLIPro error; maybe too few reads?")
-			
+	
 def trna_isotype_count(trna_samfiles, minpass, threshold):
 	# Usage: get reads that are unique to only one AA of tRNA
 	# retain reads that are uniquely mappable to one isotype of tRNA and make count table per isotype
@@ -1246,9 +1245,8 @@ def plot_ncrnas(st_stopFiles, expand):
 		i+=1
 		
 
-#Streamline these three functions later.
 def viral_RT_stops(pathtofile, filename, exoV_index):
-        exoV_genome = np.genfromtxt(exoV_index[0],dtype='string', usecols=np.arange(0,1434))
+        exoV_genome = np.genfromtxt(exoV_index[0],dtype='string')
         exoV_genome_bases = exoV_genome[1]
 
 	pos_reads = []
@@ -1256,6 +1254,7 @@ def viral_RT_stops(pathtofile, filename, exoV_index):
 	filename_split = filename.split("=")
 	ID = "7_" + filename_split[1].split("_")[2]
 	name = filename_split[0].strip("_threshold") + "_" + filename_split[1].split("_")[2] + ".txt"
+
 	with open(pathtofile, 'r') as f:
 		lines = [line.split("\t") for line in f]
 		num_lines = len(lines)
@@ -1264,7 +1263,6 @@ def viral_RT_stops(pathtofile, filename, exoV_index):
 				pos_reads.append(int(lines[i][2]))
 			else:
 				neg_reads.append(int(lines[i][2]))
-
        # Histogram of RT stops across gene body
 	start=0
 	end=len(exoV_genome_bases)
@@ -1272,9 +1270,7 @@ def viral_RT_stops(pathtofile, filename, exoV_index):
        	width = 0.7*(bins[1]-bins[0])
        	(hist_plus, histPlot_plus, sequence_plus, center_plus) = get_histogram(pos_reads, bins, exoV_genome_bases, start, end)
        	(hist_minus, histPlot_minus, sequence_minus, center_minus) = get_histogram(neg_reads, bins, exoV_genome_bases, start, end)
-
 	plot_RT_stops(pos_reads, neg_reads, name)
-
        	# Record data
 	name = filename_split[1].split("_")[2] + ".txt"
        	storageDF = pd.DataFrame()
@@ -1284,7 +1280,6 @@ def viral_RT_stops(pathtofile, filename, exoV_index):
        	outfilepathToSave = cfg.outfilepath + '/PlotData_RepeatRNAHist_%s'%name
        	storageDF.to_csv(outfilepathToSave)
        	i += 1
-
 	plt.savefig(cfg.outfilepath + "Figure%s.png" % ID, format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
 	plt.cla()
 	plt.clf()

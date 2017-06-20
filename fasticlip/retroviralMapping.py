@@ -51,7 +51,6 @@ if not glob.glob("results/" + sampleName):
 # Get raw data
 global outfilepath
 outfilepath=os.getcwd() + '/results/%s'%sampleName
-print outfilepath
 
 def modifyName(filepath,newTag):
 	# Useage: Modifies the filepath name. 
@@ -71,16 +70,9 @@ def runBowtie(fastqFiles):
     unMappedReads=[]
     print "Performing Bowtie..."
     for infastq in fastqFiles:
-        print infastq
 
         outfile = modifyName(infastq,"mappedToendoVirus.sam")
         
-        print "Input file:"
-        print infastq 
-        print 'Genome index:'
-        print retroIndex
-        print "Output file (mapped):"
-        print outfile
         proc = subprocess.Popen([program,'-x',retroIndex,'-U',infastq,'-S',outfile],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         out, err = proc.communicate()
         result = out.decode()
@@ -103,7 +95,7 @@ def runSamtools(samfiles, mapq):
     outBedFiles=[]
     
     for samfile in samfiles:
-            
+
         # Convert to bamfile
         bamfile = samfile.replace('.sam', '.bam')  
         proc = subprocess.Popen( [program, 'view', '-q', mapq, '-bS', '-o', bamfile, samfile])
@@ -143,7 +135,6 @@ def makeRepeatAnnotation():
     repeatAnnotDF['End_for_extraction']=repeatAnnotDF['IndexEnd']+1 
     repeatAnnotDF=repeatAnnotDF.set_index('Name',drop=False)
     return (repeat_genome_bases,repeatAnnotDF)
-
 # - Repeat annotation - 
 repeat_genome_bases,repeatAnnotDF=makeRepeatAnnotation()
 
@@ -171,6 +162,7 @@ recordHits['sum']=recordHits['hits_r1']+recordHits['hits_r2']
 recordHits.fillna(0,inplace=True)
 recordHits.sort(['sum'],inplace=True,ascending=False)
 
+
 grZero=recordHits[recordHits['sum']>0]
 pathToSave=outfilepath + '/endoVirus_numReads.txt'
 recordHits.to_csv(pathToSave,sep='\t')
@@ -197,17 +189,16 @@ pp = PdfPages(outfilepath + '/endoVirus_RNA_rep_comparison.pdf')
 fig = plotRepGraph()
 pp.savefig(fig)
 pp.close()
-
 # Binning and a matrix
 ofile = open(outfilepath + '/endoVirus_RNA_bins.txt', 'w')
 writer = csv.writer(ofile, 'textdialect')
-#print "amin2"
+
 #for repName in grZero.index:
 for repName in recordHits.index:
 	# Hits
     	hits_r1=bedR1[(bedR1['Start']<int(repeatAnnotDF.loc[repName,'IndexEnd'])) & (bedR1['Start']>int(repeatAnnotDF.loc[repName,'IndexStart']))]
 	hits_r2=bedR2[(bedR2['Start']<int(repeatAnnotDF.loc[repName,'IndexEnd'])) & (bedR2['Start']>int(repeatAnnotDF.loc[repName,'IndexStart']))]
-	
+
 	binSize=1
 	bins=range(repeatAnnotDF.loc[repName,'IndexStart'],repeatAnnotDF.loc[repName,'IndexEnd']+2,binSize) # Make sure bins are end coordinate inclusive
 	# amin
@@ -227,7 +218,6 @@ for repName in recordHits.index:
 	writer.writerow(outputRow)
 	
 ofile.close()
-
-os.system(outfilepath + '/*.sam')
+#os.system(outfilepath + '/*.sam')
 
 
