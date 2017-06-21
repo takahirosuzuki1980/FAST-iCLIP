@@ -166,8 +166,8 @@ if org == 'human':
 	fivePUTRBed=cfg.home+'/docs/GRCh38/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
 	threePUTRBed=cfg.home+'/docs/GRCh38/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
 	exonBed=cfg.home+'/docs/GRCh38/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	utrFile=cfg.home+'/docs/GRCh38/UTR_annotation.txt' # UTR annotation file.
-	genesFile=cfg.home+'/docs/GRCh38/GRCh38_ensGene_76.txt' # Gene annotation file.
+	#utrFile=cfg.home+'/docs/GRCh38/UTR_annotation.txt' # UTR annotation file.
+	#genesFile=cfg.home+'/docs/GRCh38/GRCh38_ensGene_76.txt' # Gene annotation file.
 	sizesFile=cfg.home+'/docs/GRCh38/GRCh38.sizes' # Genome sizes file. 
 	snoRNAindex=cfg.home+'/docs/GRCh38/snoRNA_coordinates.bed' # snoRNA coordinate file.
 	tRNAindex=cfg.home+'/docs/GRCh38/trna/tRNA_hg19'  # this is now CCA tailed
@@ -196,8 +196,8 @@ elif org == 'mouse':
 	fivePUTRBed=cfg.home+'/docs/GRCm38/5UTR.bed' # UTR annotation file.
 	threePUTRBed=cfg.home+'/docs/GRCm38/3UTR.bed' # UTR annotation file. 
 	exonBed=cfg.home+'/docs/GRCm38/exons.bed' # UTR annotation file. 
-	utrFile=cfg.home+'/docs/GRCm38/UTR_annotation.txt' # UTR annotation file. 
-	genesFile=cfg.home+'/docs/GRCm38/GRCm38_ensGene.txt' # Gene annotation file. 
+	#utrFile=cfg.home+'/docs/GRCm38/UTR_annotation.txt' # UTR annotation file. 
+	#genesFile=cfg.home+'/docs/GRCm38/GRCm38_ensGene.txt' # Gene annotation file. 
 	sizesFile=cfg.home+'/docs/GRCm38/GRCm38.sizes' # Genome sizes file. 
 	snoRNAindex=cfg.home+'/docs/GRCm38/snoRNA_coordinates.bed' # snoRNA coordinate file. 
 	tRNAindex=cfg.home+'/docs/GRCm38/tRNA/tRNA_mm9'  # this is now CCA tailed

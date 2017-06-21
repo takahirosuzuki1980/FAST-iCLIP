@@ -94,7 +94,7 @@ The version numbers listed have been tested successfully. There can be difficult
 - Samtools 0.1.18: https://github.com/samtools/samtools/archive/0.1.18.tar.gz (not compatible with later samtools, source for samtools is available in ~/dependencies)
 - Bowtie 2.1: http://bowtie-bio.sourceforge.net/bowtie2/index.shtml
 - STAR 2.4.2a: https://github.com/alexdobin/STAR/tree/STAR_2.4.2a (The annotations work only with this version,  source for STAR is available in ~/dependencies)
-- bedtools 2.25.0: http://bedtools.readthedocs.org/en/latest/
+- bedtools 2.22.0: https://github.com/arq5x/bedtools2/releases/download/v2.22.0/bedtools-2.22.0.tar.gz (a copy of compatible bedtools is available in ~/dependencies)
 - FASTX-Tookit 0.0.13: http://hannonlab.cshl.edu/fastx_toolkit/
 - matplotlib-venn 0.11.4: https://pypi.python.org/pypi/matplotlib-venn
 - iCLIPro 0.1.1: http://www.biolab.si/iCLIPro/doc/
