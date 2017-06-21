@@ -279,7 +279,8 @@ def trna_isotype_count(trna_samfiles, minpass, threshold):
 ### PROCESSING ###
 ##################
 
-def remove_RepeatMaskerRegions(gen_bed, blacklistregions, repeatregions):
+#def remove_RepeatMaskerRegions(gen_bed, blacklistregions, repeatregions):
+def remove_RepeatMaskerRegions(gen_bed, repeatregions):
 	# Usage: Remove repeat regions from bedfile following mapping.
 	# Input: .bed file after mapping (duplicates removed by samtools).
 	# Output: Bedfile with repeat regions removed.

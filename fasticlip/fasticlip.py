@@ -159,7 +159,7 @@ if org == 'human':
 	index=cfg.home + '/docs/GRCh38/GRCh38_STAR' # bt2 index for mapping.
 	index_tag='GRCh38' # Name of bt2 index.
 	genomeFile=cfg.home+'/docs/GRCh38/GRCh38.sizes' # Genome file for bedGraph, etc.
-	blacklistregions=cfg.home+'/docs/GRCh38/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
+	#blacklistregions=cfg.home+'/docs/GRCh38/wgEncodeDukeMapabilityRegionsExcludable.bed' # Blacklist masker.
 	repeatregions=cfg.home+'/docs/GRCh38/GRCh38_repeatMasker.bed' # Repeat masker.
 	geneAnnot=glob.glob(cfg.home+'/docs/GRCh38/gene_types/*') # List of genes by type.
 	miRNAmasker=cfg.home+'/docs/GRCh38/miR_sort_clean.bed' # miRNA masker file.
@@ -189,7 +189,7 @@ elif org == 'mouse':
 	index=cfg.home + '/docs/GRCm38/GRCm38_STAR' # bt2 index for mapping.
 	index_tag='GRCm38' # Name of bt2 index.
 	genomeFile=cfg.home+'/docs/GRCm38/GRCm38.sizes' # Genome file for bedGraph, etc.
-	blacklistregions=cfg.home+'/docs/GRCm38/mm9-blacklist.bed' # Blacklist masker.
+	#blacklistregions=cfg.home+'/docs/GRCm38/mm9-blacklist.bed' # Blacklist masker.
 	repeatregions=cfg.home+'/docs/GRCm38/GRCm38_repeatMasker.bed' # Repeat masker.
 	geneAnnot=glob.glob(cfg.home+'/docs/GRCm38/gene_types/*') # List of genes by type. 
 	miRNAmasker=cfg.home+'/docs/GRCm38/miRNA_coordinates.bed' # miRNA masker file.
@@ -293,7 +293,8 @@ def main():
 
 	# 2.3 Process nonrepeat RT stops
 	log("Nonrepeat RT stop isolation.")
-	gen_norepeat_bed = remove_RepeatMaskerRegions(gen_bed, blacklistregions, repeatregions)
+	gen_norepeat_bed = remove_RepeatMaskerRegions(gen_bed, repeatregions)
+	#gen_norepeat_bed = remove_RepeatMaskerRegions(gen_bed, blacklistregions, repeatregions)
 	readsByStrand = separateStrands(gen_norepeat_bed)
 	negativeRTstop = isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
 	positiveRTstop = isolate5prime(readsByStrand[1]) 
