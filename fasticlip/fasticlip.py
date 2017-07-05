@@ -149,13 +149,13 @@ if org == 'human':
 	repeatAnnotation=cfg.home+'/docs/GRCh38/repeat/Hs_repeatIndex_spaced_positions.txt' # Repeat annotation file.
 	endoVirus_index=cfg.home+'/docs/GRCh38/retroviral/'
 	exoVirus_index=cfg.home+'/docs/viral/'
-	start18s=3657
-	end18s=5527
-	start5s=6623
-	end5s=6779
-	start28s=7935
-	end28s=12969
-	rRNAend=13314
+	start18s=3655
+	end18s=5523
+	start5s=6601
+	end5s=6757
+	start28s=7925
+	end28s=12994
+	rRNAend=13357
 	index=cfg.home + '/docs/GRCh38/GRCh38_STAR' # bt2 index for mapping.
 	index_tag='GRCh38' # Name of bt2 index.
 	genomeFile=cfg.home+'/docs/GRCh38/GRCh38.sizes' # Genome file for bedGraph, etc.
@@ -485,7 +485,8 @@ def main():
 			negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
                         filename = cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
 			viral_RT_stops(negAndPosMerged,filename, exoVirus_to_fa[v])
-	cfg.logOpen.close()
+        clean_up()
+        cfg.logOpen.close()
 
 if __name__ == "__init__":
 	main()
