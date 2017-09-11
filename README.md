@@ -39,7 +39,6 @@ Note that the current pipeline is compatible with only GRCh38 (human) and GRCm38
   -i INPUT(s) | At least one input FASTQ (or fastq.gz) files; separated by spaces
   --GRCh38        |    required if your CLIP is from human
   --GRCm38          |   required if your CLIP is from mouse
-  -s STAR_INDEX  |   Path to STAR index for your organism
   -n NAME         |  Name of output directory
   -o OUTPUT        | Name of directory where output directory will be made
   
@@ -53,11 +52,11 @@ Note that the current pipeline is compatible with only GRCh38 (human) and GRCm38
   -tr REPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to repeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
   -tv EXOVIRAL_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to viral genome. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
   -tn NONREPEAT_THRESHOLD_RULE | m,n: at least m samples must each have at least n RT stops mapped to nonrepeat RNAs. Default is 1,4 (1 sample); 2,3 (2 samples); x,2 (x>2 samples)
-  -sr STAR_RATIO   |     Maximum mismatches per base allowed for STAR genome mapping (corresponds to outFilterMismatchNoverLmax). Default is 0.08 (2 mismatches per 25 mapped bases).
   -bm BOWTIE_MAPQ   |    Minimum MAPQ (Bowtie alignment to repeat/tRNA/retroviral indexes) score allowed. Default is 42.  
   -q Q         |         Minimum average quality score allowed during read filtering. Default is 25.
   -p P          |    Percentage of bases that must have quality > q during filtering. Default is 80.
   -l L           |       Minimum length of read. Default is 15.
+  -c C           |       Number of cores used by bowtie2. Default is 8.
   --verbose	| Prints out lots of things :)
 
 
@@ -107,34 +106,7 @@ At least one FASTQ or compressed FASTQ (fastq.gz). Use the `--trimmed` flag if t
 Output
 ------
 
-Three subdirectories inside the named directory within `results`. 
-- `figures` has 6 figures in pdf and png format.
-  - *Figure 1* visualizes the some of the relevant summary data.
-    - A. Read count summary per pipeline step. The source data is: PlotData_ReadsPerPipeFile
-    - B. Bar graph of gene count per RNA type. The source data is: PlotData_ReadAndGeneCountsPerGenetype
-    - C. Pie chart of RT stops mapping to known features of mRNAS including 5'UTR, Introns, CDS, and 3'UTR.
-    	- This uses reads obtrained from intersection with ENSEMBL-derived UTR coordinates. The source data is: PlotData_ReadsPerGene_*UTR or CDS
-    - D. Pie chart of RT stops mapped to all indexes included in the FAST-iCLIP pipeline.
-
-  - *Figure 2* provides coverage histograms of binding across each repeat RNA element, both sense and antisense strands. 
-    - Source data: PlotData_RepeatRNAHist_*
-    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
-
-  - *Figure 3* provides coverage histograms of binding across the rRNA, highlighting mature rRNA regions. 
-    - Source data: PlotData_RepeatRNAHist_*
-    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
-
-  - *Figures 4a and 4b* provide a summary of snoRNA binding data.
-    - Histograms display RT stop position within an average snoRNA gene body.
-    - The pie chart provides a summary of reads per snoRNA type.
-
-  - *Figure 5* provides histograms of RT stop position within gene body for all remaining ncRNA types.
-
-  - *Figure 6* provides a pie chart composed of RT stops from the top 15 best bound endoVirus elements.
-    - Total RT stop counts per element and percentage of the total endoVirus mapped reads are included for each element in the legend.
-
-  - *Figure 7* provides histograms of RT stop position across the genome for any exoViruses (DV, ZV, or HCV).
-    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
+-NOTE: Figures are no longer created. Hopefully, this will ease installation and allow faster runtime.
 
 - `rawdata` has all the PlotData files used to make the figures, as well as intermediate files that can be useful in generating other plots.
 - `todelete` has files that are unnecessary to keep.
