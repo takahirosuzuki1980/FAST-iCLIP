@@ -111,7 +111,7 @@ def run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, trna
 		# MAPPING
 		
 		if glob.glob(genome_mapped) and os.stat(genome_mapped).st_size > 0:
-			log("Bowtie already done.")
+			log("Bowtie/STAR already done.")
 			continue
 					
 		if exoViruses:
@@ -341,6 +341,8 @@ def isolate5prime(strandedReads):
 			f = open(RTstop, 'w')
 			for line in infile: 
 				chrom,start,end,name,quality,strand=line.strip().split('\t')
+				#f.write('\t'.join((chrom,start,strand))+'\n')
+				#f.write('\t'.join((chrom,str(int(start)-1),strand))+'\n')
 				if strand=="+":
 					f.write('\t'.join((chrom,str(int(start)-1),strand))+'\n')
 				else:
@@ -431,6 +433,7 @@ def filter_snoRNAs(negAndPosMerged, snoRNAmasker, miRNAmasker):
 	os.system(cmd)
 	
 	return proteinWithoutmiRNAs
+
 
 def annotate_genes(sno_mirna_filtered_reads, geneStartStopRepoBed):
 	# Usage: Annotate all reads that match ENSG genes; delete the rest.
@@ -737,6 +740,18 @@ def plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag):
 			temp = temp/4 # Fastq files
 		counts = counts+[temp]
 		counter += 1
+
+	ind = np.arange(len(counts)) + 0.5
+	plt.barh(ind,list(reversed(np.log10(np.array(counts)))),align='center',color='blue')
+	plt.xlabel('log10(Counts per file)',fontsize=5)
+	locs,pltlabels = plt.xticks(fontsize=5)
+	plt.setp(pltlabels, rotation=90, fontsize=5)
+	plt.yticks(ind,list(reversed(fileNames)),fontsize=5)
+	plt.tick_params(axis='yticks',labelsize=5) 
+	ax=plt.gca()
+	for line in ax.get_yticklines():
+		line.set_markersize(0)
+	plt.title('Read counts',fontsize=5)
 	
 	if cfg.verbose: log(str(fileNames))
 	if cfg.verbose: log(str(counts))
@@ -766,6 +781,18 @@ def plot_BoundGeneTypes():
 	record.sort_values('genesBound',inplace=True)
 	outfilepathToSave=cfg.outfilepath + '/PlotData_ReadAndGeneCountsPerGenetype.txt'
 	record.to_csv(outfilepathToSave)
+	ind = np.arange(record.shape[0]) + 0.5
+	plt.bar(ind,record['genesBound'],align='center',color='blue')
+	locs,pltlabels = plt.yticks(fontsize=5)
+	locs,pltlabels = plt.xticks(ind,record.index,fontsize=5)
+	plt.setp(pltlabels, rotation=90, fontsize=5)
+	plt.tick_params(axis='xticks',labelsize=5) 
+	ax=plt.gca()
+	for line in ax.get_xticklines():
+		line.set_markersize(0)
+	plt.ylabel('Number of genes bound',fontsize=5)
+	plt.tick_params(axis='yticks',labelsize=5)
+	plt.title('Bound genes by class',fontsize=5)
 	
 def readUTRfile(path):
 	geneCounts=pd.read_csv(path,header=None)
@@ -791,9 +818,15 @@ def plot_readsBymRNAregion(ax):
 		wedge.set_lw(1)
 		
 def plot_figure1(nsamp, reads, threshold_nr, index_tag, exoViruses, reads_files):
+	plt.subplot(2,2,1) 
 	plot_ReadAccounting(nsamp, reads, threshold_nr, index_tag)
+	ax = plt.subplot(2,2,2)
+	plot_readsBymRNAregion(ax)
+	plt.subplot(2,2,3)
 	plot_BoundGeneTypes()
-
+	plt.subplot(2,2,4)
+	make_reads_by_type_pie2(nsamp, reads, threshold_nr, index_tag)
+	plt.tight_layout()
 	
 ############
 ## PLOT 2 ##
@@ -930,8 +963,6 @@ def get_histogram(RTpositions, bins, repeat_genome_bases, start, end):
 
 
 def plot_RT_stops(pos_reads, neg_reads, name):
-	#repeat_genome = np.genfromtxt(repeatGenomeBuild,dtype='string')
-	#repeat_genome_bases = repeat_genome[1]
 	pos_neg_map = {}
 	for read in pos_reads:
 		if read in pos_neg_map:
@@ -963,12 +994,9 @@ def plot_RT_stops(pos_reads, neg_reads, name):
 	hist_pos, bins_pos = np.histogram(pos_reads, bins = bins_initial)
 	center_pos = (bins_pos[:-1] + bins_pos[1:])/2
 	histPlot_pos = np.array(hist_pos, dtype=float)
-	#histPlot_pos = np.array(histPlot_pos/float(len(pos_reads)), dtype=float)
-	#center_pos=center_pos/max(center_pos)
 
 	hist_neg, bins_neg = np.histogram(neg_reads, bins = bins_initial)
 	center_neg = (bins_neg[:-1] + bins_neg[1:])/2
-	#center_neg=center_neg/max(center_neg)
 
 	histPlot_neg = np.array(hist_neg * -1, dtype=float)
 	neg_min = min(histPlot_neg)
@@ -993,6 +1021,7 @@ def plot_RT_stops(pos_reads, neg_reads, name):
 	name_=name.replace(".txt", "")
 	plt.title("%s" % name_)
 
+
 def plot_repeatRNA(repeatGenomeBuild):
 	repeat_genome = np.genfromtxt(repeatGenomeBuild,dtype='string')
 	repeat_genome_bases = repeat_genome[1]
@@ -1015,6 +1044,10 @@ def plot_repeatRNA(repeatGenomeBuild):
 		(hist_plus, histPlot_plus, sequence_plus, center_plus) = get_histogram(RTpositions_plus, bins, repeat_genome_bases, start, end)
 		(hist_minus, histPlot_minus, sequence_minus, center_minus) = get_histogram(RTpositions_minus, bins, repeat_genome_bases, start, end)
 	
+		# Subplot
+		plt.subplot(plotDim, plotDim, i+1)
+		plot_RT_stops(RTpositions_plus.tolist(), RTpositions_minus.tolist(), name)
+
 		# Record data
 		storageDF = pd.DataFrame()
 		storageDF['Sequence'] = pd.Series(list(sequence_plus))
@@ -1024,6 +1057,9 @@ def plot_repeatRNA(repeatGenomeBuild):
 		storageDF.to_csv(outfilepathToSave)
 		i += 1
 
+	plt.figtext(0.42, 1.02, 'RT Stops (+ blue, - red)', fontdict=None, fontsize='9')
+	plt.figtext(0.46, 0.55, 'Genomic Coordinate', fontdict=None, fontsize='7')
+	plt.figtext(-0.01, 0.815, 'No. of Hits', fontdict=None, fontsize='7', rotation='vertical')
 	
 ############
 ## PLOT 4 ##
@@ -1165,6 +1201,8 @@ def plot_snorna(snorna_file):
 		plt.title('Binding profile for %s'%title,fontsize=5)
 		i+=1
 
+
+
 ############
 ## PLOT 6 ##
 ############
@@ -1201,6 +1239,7 @@ def plot_ncrnas(st_stopFiles, expand):
 		plt.xlabel('Fraction of gene body (5p - 3p)',fontsize=5)
 		plt.title('Binding profile for %s'%name,fontsize=5)
 		i+=1
+		
 
 def viral_RT_stops(pathtofile, filename, exoV_index):
 	pos_reads = []
@@ -1217,6 +1256,10 @@ def viral_RT_stops(pathtofile, filename, exoV_index):
 			pos_reads.append(int(lines[i][2]))
 		else:
 			neg_reads.append(int(lines[i][2]))
+	plot_RT_stops(pos_reads, neg_reads, name)
+	plt.savefig(cfg.outfilepath + "Figure%s.png" % ID, format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
+	plt.cla()
+	plt.clf()
 
 	# Histogram of RT stops across gene body
 	log("exoV_index[0]: " + exoV_index[0])
@@ -1306,6 +1349,7 @@ def make_reads_by_type_pie2(nsamp, reads, threshold_nr, index_tag):
 	plt.axis("equal")
 	plt.title('Reads', bbox={'facecolor':'0.8', 'pad':5}, loc = "left")
 
+
 def isolateUniqueReads():
 	reads_by_type = {}
 	read_counts_by_type = {}
@@ -1392,7 +1436,7 @@ def plotTopEndo():
 	 
 def clean_up():
 	os.chdir(cfg.outfilepath)
-	os.system("mkdir figures")
+	os.system("mkdir figures")	
 	os.system("mkdir RepeatRNA")
 	os.system("mv PlotData_RepeatRNA* RepeatRNA")
 	os.system("mkdir ReadsPerGene")
@@ -1414,4 +1458,5 @@ def clean_up():
 	os.system("mkdir todelete")
 	os.system("mv *.* todelete")
 	os.system("mv clipGenes_* todelete")
+
 	
