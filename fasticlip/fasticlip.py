@@ -74,11 +74,6 @@ if not glob.glob(cfg.outfilepath):
 cfg.outfilepath = cfg.outfilepath + '/%s/'%cfg.sampleName
 if not glob.glob(cfg.outfilepath): os.system("mkdir " + cfg.outfilepath)
 
-"""star_index = args.s  # Location of STAR index
-if not glob.glob(star_index):
-	print "Error: STAR index at " + star_index + " not accessible. Exiting."
-	exit()"""
-
 #bowtie_index = args.b # Location of Bowtie index
 	
 # exoViruses
@@ -97,7 +92,6 @@ cfg.logOpen=open(cfg.logFile, 'w')
 ### Parameters ###
 
 iCLIP3pBarcode = args.a # Barcode sequence to trim from reads.
-#star_ratio = args.sr  # Maximum mismatch/base ratio allowed for STAR
 mapq = args.bm # Minimum MAPQ score allowed allowed for Bowtie2
 q = args.q # Minimum quality score to keep during filtering.
 p = args.p # Percentage of bases that must have quality > q during filtering.
@@ -167,7 +161,7 @@ if org == 'human':
 	miRNAmasker=cfg.home+'/docs/GRCh38/miR_sort_clean.bed' # miRNA masker file.
 	fivePUTRBed=cfg.home+'/docs/GRCh38/5pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
 	threePUTRBed=cfg.home+'/docs/GRCh38/3pUTRs_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
-	exonBed=cfg.home+'/docs/GRCh38/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.	#utrFile=cfg.home+'/docs/GRCh38/UTR_annotation.txt' # UTR annotation file.
+	exonBed=cfg.home+'/docs/GRCh38/Exons_Ensbl_sort_clean_uniq.bed' # UTR annotation file.
 	sizesFile=cfg.home+'/docs/GRCh38/GRCh38.sizes' # Genome sizes file. 
 	snoRNAindex=cfg.home+'/docs/GRCh38/snoRNA_coordinates_15exp.bed' # snoRNA coordinate file.
 	tRNAindex=cfg.home+'/docs/GRCh38/trna/tRNA_hg19'  # this is now CCA tailed
@@ -230,7 +224,6 @@ def main():
 	else: processed_reads = reads
 
 	log("\nRun mapping to indexes.")
-	#(viral_sam, rep_sam, endoVirus_sam, trna_sam, gen_sam) = run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, tRNAindex, star_index, star_ratio)
 	(viral_sam, rep_sam, endoVirus_sam, trna_sam, gen_sam) = run_mapping(processed_reads, exoViruses, repeat_index, endoVirus_index, tRNAindex, bowtie_index, num_cores)
 
 	log("\nRun samtools.")
@@ -266,7 +259,6 @@ def main():
 			fileCat(negAndPosMerged, [posMerged, negMerged])
 			fileCat(negAndPosMerged + '_stats', [posMerged + '_stats', negMerged + '_stats'])
 
-
 	# 2.2 Process repeat RT stops   
 	log("\nRepeat RT stop isolation.")
 	readsByStrand_rep=separateStrands(rep_bed)
@@ -286,7 +278,6 @@ def main():
 	# 2.3 Process nonrepeat RT stops
 	log("Nonrepeat RT stop isolation.")
 	gen_norepeat_bed = remove_RepeatMaskerRegions(gen_bed, repeatregions)
-	#gen_norepeat_bed = remove_RepeatMaskerRegions(gen_bed, blacklistregions, repeatregions)
 	readsByStrand = separateStrands(gen_norepeat_bed)
 	negativeRTstop = isolate5prime(modifyNegativeStrand(readsByStrand[0])) 
 	positiveRTstop = isolate5prime(readsByStrand[1]) 
@@ -414,68 +405,22 @@ def main():
 	cmd = "python {} -n {} --{}".format(program, cfg.sampleName, organism)
 	os.system(cmd)
 
-	log("\nMake plots.")
 	import matplotlib
 	import commands
-	matplotlib.rcParams['savefig.dpi'] = 2 * matplotlib.rcParams['savefig.dpi']
+	matplotlib.rcParams['savefig.dpi'] = 200
 
-	log("Making Figure 1")
-	fig1 = plt.figure(1)
 	plot_figure1(nsamp, reads, threshold_nr, index_tag, exoViruses, reads_files)
-	fig1.tight_layout()
-	fig1.savefig(cfg.outfilepath+'Figure1.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
-
-	log("Making Figure 2")
-	fig2 = plt.figure(2)
 	plot_repeatRNA(repeatGenomeBuild)
-	fig2.tight_layout()
-	fig2.savefig(cfg.outfilepath+'Figure2a.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
-	plt.cla()
-	plt.clf()
 
-	log("Making Figure 3")
-	fig3 = plt.figure(3)
-	plot_rDNA(start18s, end18s, start5s, end5s, start28s, end28s, rRNAend)
-	fig3.tight_layout()
-	fig3.savefig(cfg.outfilepath+'Figure3a.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
-	plt.cla()
-	plt.clf()
-
-	log("Making Figure 4")
-	if os.stat(bedFile_sno).st_size > 0:
-		fig4 = plt.figure(4)
-		plot_snorna(bedFile_sno)
-		fig4.tight_layout()
-		fig4.savefig(cfg.outfilepath+'Figure4a.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5, fontsize = 5)
-		plot_snorna_type()
-	else:
-		log("No snoRNA reads; not making Figure 4")
-		plt.cla()
-		plt.clf()
-
-	log("Making Figure 5")
-	st_stopFiles = glob.glob(cfg.outfilepath+"*.geneStartStop")
-	st_stopFiles = [f for f in st_stopFiles if 'rRNA' not in f]
-	fig5 = plt.figure(5)
-	plot_ncrnas(st_stopFiles, expand)
-	fig5.tight_layout()
-	fig5.savefig(cfg.outfilepath+'Figure5.png',format='png',bbox_inches='tight',dpi=300,pad_inches=0.5)
-
-	log("Making Figure 6")
-	plotTopEndo()
-	
-	log("Making Figure 7")
 	if exoViruses:
 		for v in exoVirus_to_beds:
 			negAndPosMerged = cfg.outfilepath + cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
 			filename = cfg.sampleName + '_threshold={}_viral_{}_allreads.mergedRT.bed'.format(threshold_viral, v)
 			viral_RT_stops(negAndPosMerged,filename, exoVirus_to_fa[v])
 	
-
 	clean_up()
 	cfg.logOpen.close()
 
 if __name__ == "__init__":
 	main()
-
 	
