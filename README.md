@@ -23,11 +23,11 @@ The following README will focus mainly on `fasticlip`. The pdf in the repository
 Usage [*** UPDATE ***]
 -----
 
-`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--GRCh38 | --GRCm38] -s STAR_INDEX -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-tv EXOVIRUS_THRESHOLD_RULE] [-sr STAR_RATIO] [-bm BOWTIE_MAPQ] [-q Q] [-p P] [-l L] [--verbose]`
+`fasticlip [-h] -i INPUT [INPUT ...] [--trimmed] [--GRCh38 | --GRCm38] -n NAME -o OUTPUT [-f N] [-a ADAPTER] [-tr REPEAT_THRESHOLD_RULE] [-tn NONREPEAT_THRESHOLD_RULE] [-tv EXOVIRUS_THRESHOLD_RULE] [-bm BOWTIE_MAPQ] [-q Q] [-p P] [-l L] [-c C] [--verbose]`
 
-Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --GRCm38 -s docs/GRCm38/GRCm38_STAR/ -n MMhur -o results`
+Example: `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --GRCm38 -n MMhur -o results`
 
-Example: `fasticlip -i rawdata/example_Hmhur_R1.fastq rawdata/example_Hmhur_R2.fastq --GRCh38 -s docs/GRCh38/GRCh38_STAR/ -n Hmhur -o results`
+Example: `fasticlip -i rawdata/example_Hmhur_R1.fastq rawdata/example_Hmhur_R2.fastq --GRCh38 -n Hmhur -o results`
 
 Note that the current pipeline is compatible with only GRCh38 (human) and GRCm38 (mouse) assemblies. This is due to a tailored set of annotations used in the pipeline. We will release details of generating annotation files for other genomes shortly in future. 
 
@@ -79,7 +79,7 @@ Installation instructions
 Save the file, then run `source ~/.bash_profile`.
 
 7. Try running the following command: 
-  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --GRCm38 -s docs/GRCm38/GRCm38_STAR/ -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
+  `fasticlip -i rawdata/example_MMhur_R1.fastq rawdata/example_MMhur_R2.fastq --GRCm38 -n MMhur -o results`. It should run in ~1 hour. Look inside `results/MMhur` for output files.
 
 
 Dependencies
@@ -106,7 +106,34 @@ At least one FASTQ or compressed FASTQ (fastq.gz). Use the `--trimmed` flag if t
 Output
 ------
 
--NOTE: Figures are no longer created. Hopefully, this will ease installation and allow faster runtime.
+Three subdirectories inside the named directory within `results`. 
+- `figures` has 6 figures in pdf and png format.
+  - *Figure 1* visualizes the some of the relevant summary data.
+    - A. Read count summary per pipeline step. The source data is: PlotData_ReadsPerPipeFile
+    - B. Bar graph of gene count per RNA type. The source data is: PlotData_ReadAndGeneCountsPerGenetype
+    - C. Pie chart of RT stops mapping to known features of mRNAS including 5'UTR, Introns, CDS, and 3'UTR.
+    	- This uses reads obtrained from intersection with ENSEMBL-derived UTR coordinates. The source data is: PlotData_ReadsPerGene_*UTR or CDS
+    - D. Pie chart of RT stops mapped to all indexes included in the FAST-iCLIP pipeline.
+
+  - *Figure 2* provides coverage histograms of binding across each repeat RNA element, both sense and antisense strands. 
+    - Source data: PlotData_RepeatRNAHist_*
+    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
+
+  - *Figure 3* provides coverage histograms of binding across the rRNA, highlighting mature rRNA regions. 
+    - Source data: PlotData_RepeatRNAHist_*
+    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
+
+  - *Figures 4a and 4b* provide a summary of snoRNA binding data.
+    - Histograms display RT stop position within an average snoRNA gene body.
+    - The pie chart provides a summary of reads per snoRNA type.
+
+  - *Figure 5* provides histograms of RT stop position within gene body for all remaining ncRNA types.
+
+  - *Figure 6* provides a pie chart composed of RT stops from the top 15 best bound endoVirus elements.
+    - Total RT stop counts per element and percentage of the total endoVirus mapped reads are included for each element in the legend.
+
+  - *Figure 7* provides histograms of RT stop position across the genome for any exoViruses (DV, ZV, or HCV).
+    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
 
 - `rawdata` has all the PlotData files used to make the figures, as well as intermediate files that can be useful in generating other plots.
 - `todelete` has files that are unnecessary to keep.
