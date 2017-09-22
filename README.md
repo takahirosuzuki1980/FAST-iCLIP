@@ -64,8 +64,8 @@ Installation instructions
 ------------
 
 1. Clone this repository by running one of the following:
-	- `git clone git@github.com:ChangLab/FAST-iCLIP.git` if you use ssh authentication
-	- `git clone https://github.com/ChangLab/FAST-iCLIP.git` otherwise
+	- `git clone git@github.com:ChangLab/FAST-iCLIP.git -b lite` if you use ssh authentication
+	- `git clone https://github.com/ChangLab/FAST-iCLIP.git -b lite` otherwise
 2. Type `cd FAST-iCLIP` to enter the folder.
 3. Run `./configure`. This will check for dependencies (below) and download necessary files (bowtie indices, gene lists and genomes, and example iCLIP data). Note that the configure will download a very large annotation file from Amazon that contains all necessary annotation files to run the pipeline. Please wait until all annotations are downloaded and extracted. No additional annotation file is needed. The annotations are compatible only with the tools specificed in the following.
 4. Run `sudo python setup.py install`. If you do not have sudo privileges, run `python setup.py install --user` or `python setup.py install --prefix=<desired directory>`.
@@ -106,35 +106,7 @@ At least one FASTQ or compressed FASTQ (fastq.gz). Use the `--trimmed` flag if t
 Output
 ------
 
-Three subdirectories inside the named directory within `results`. 
-- `figures` has 6 figures in pdf and png format.
-  - *Figure 1* visualizes the some of the relevant summary data.
-    - A. Read count summary per pipeline step. The source data is: PlotData_ReadsPerPipeFile
-    - B. Bar graph of gene count per RNA type. The source data is: PlotData_ReadAndGeneCountsPerGenetype
-    - C. Pie chart of RT stops mapping to known features of mRNAS including 5'UTR, Introns, CDS, and 3'UTR.
-    	- This uses reads obtrained from intersection with ENSEMBL-derived UTR coordinates. The source data is: PlotData_ReadsPerGene_*UTR or CDS
-    - D. Pie chart of RT stops mapped to all indexes included in the FAST-iCLIP pipeline.
-
-  - *Figure 2* provides coverage histograms of binding across each repeat RNA element, both sense and antisense strands. 
-    - Source data: PlotData_RepeatRNAHist_*
-    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
-
-  - *Figure 3* provides coverage histograms of binding across the rRNA, highlighting mature rRNA regions. 
-    - Source data: PlotData_RepeatRNAHist_*
-    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
-
-  - *Figures 4a and 4b* provide a summary of snoRNA binding data.
-    - Histograms display RT stop position within an average snoRNA gene body.
-    - The pie chart provides a summary of reads per snoRNA type.
-
-  - *Figure 5* provides histograms of RT stop position within gene body for all remaining ncRNA types.
-
-  - *Figure 6* provides a pie chart composed of RT stops from the top 15 best bound endoVirus elements.
-    - Total RT stop counts per element and percentage of the total endoVirus mapped reads are included for each element in the legend.
-
-  - *Figure 7* provides histograms of RT stop position across the genome for any exoViruses (DV, ZV, or HCV).
-    - RT stops mapping to the positive and negative strands are shown in blue and red, respectively.
-
+- Lite version does not include figures
 - `rawdata` has all the PlotData files used to make the figures, as well as intermediate files that can be useful in generating other plots.
 - `todelete` has files that are unnecessary to keep.
 
