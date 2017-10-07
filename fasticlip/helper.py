@@ -429,6 +429,11 @@ def filter_snoRNAs(negAndPosMerged, snoRNAmasker, miRNAmasker):
 	cmd = cmd1 + ' | ' + cmd2_1 + ' | ' + cmd2_2 + ' > ' + cmd2_3
 	if cfg.verbose: log(cmd)
 	os.system(cmd)
+	cmd3_1 = "cat {} | sort -k1,1 -k2,2g".format(proteinWithoutmiRNAs)
+	cmd3_2 = "awk 'BEGIN{OFS=\"\t\"} {print $1,$2,$3,\".\",$5,$6}' | uniq -c"
+	cmd3_3 = "awk 'BEGIN{OFS=\"\t\"} {print $2,$3,$4,\".\",$1,$7}' > {}".format(proteinWithoutmiRNAs.replace('.bed','_reformat.bed'))
+	cmd3 = cmd3_1 + ' | ' + cmd3_2 + ' | ' + cmd3_3
+	os.system(cmd3)
 	
 	return proteinWithoutmiRNAs
 
